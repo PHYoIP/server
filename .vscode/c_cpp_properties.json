@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "IntelliSense helper",
+            "includePath": [
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/protocol/include",
+            ],
+            "defines": [
+                //"__unix__",
+                //"__linux__",
+                //"_GNU_SOURCE",
+                "_DEBUG",
+            ],
+            //"compilerPath": "",
+            //"cppStandard": "c++17",
+        }
+    ],
+    "version": 4
+}
