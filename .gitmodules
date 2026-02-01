@@ -1,3 +1,6 @@
 [submodule "protocol"]
 	path = protocol
 	url = https://github.com/PHYoIP/protocol.git
+[submodule "common"]
+	path = common
+	url = https://github.com/PHYoIP/common.git

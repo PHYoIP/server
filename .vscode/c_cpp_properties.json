@@ -4,6 +4,8 @@
             "name": "IntelliSense helper",
             "includePath": [
                 "${workspaceFolder}/src",
+                "${workspaceFolder}/common/include",
+                "${workspaceFolder}/common/src",
                 "${workspaceFolder}/protocol/include",
             ],
             "defines": [
