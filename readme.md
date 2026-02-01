@@ -23,15 +23,15 @@ phyoip-server 1234 A,0A,24 COM3 9600 8E2
 Comma separated list of parameters. The first parameter specifies the protocol type.
 
 #### `A` ASCII Protocol
-ASCII protocols use one or two stop symbols, and optionally one start symbol: `A,STOP[,START]`.
+ASCII protocols use one or two stop symbols, and optionally one start symbol: `A,STOP[,START]`. Only the stop symbol may have two characters. The start symbol can not be NULL.
 
-|       Symbol       | Description                                     |
-|:------------------:|:------------------------------------------------|
+|      Symbol      | Description                                     |
+|:----------------:|:------------------------------------------------|
 | `xx`,<br/>`xxxx` | `x` has to be a hexadecimal digit               |
-|        `LF`        | Line Feed, 0A<sub>h</sub>, 10<sub>d</sub>       |
-|        `CR`        | Carriage Return, 0D<sub>h</sub>, 13<sub>d</sub> |
-|       `CRLF`       | `CR` and `LF`, 0D0A<sub>h</sub>                 |
-|       `NULL`       | Null terminator, 00<sub>h</sub>, 0<sub>d</sub>  |
+|       `LF`       | Line Feed, 0A<sub>h</sub>, 10<sub>d</sub>       |
+|       `CR`       | Carriage Return, 0D<sub>h</sub>, 13<sub>d</sub> |
+|      `CRLF`      | `CR` and `LF`, 0D0A<sub>h</sub>                 |
+|      `NULL`      | Null terminator, 00<sub>h</sub>, 0<sub>d</sub>  |
 
 #### `B` Binary Protocol
 `B,TO[,LEN]`

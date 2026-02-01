@@ -14,6 +14,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include "common/ansi-esc.h"
 #include "common/util/macros.h"
 #include "common/windows.h"
+#include "gateway.h"
 #include "project.h"
 
 
@@ -43,7 +44,7 @@ static const std::string usageString = std::string(prj::binName) + " PORT [SPCFG
 
 
 
-static int parseGatewayArgs(int argc, char** argv);
+static int parseGatewayArgs(int argc, char** argv, gateway::Config& cfg);
 static void printHelp();
 static void printUsageAndTryHelp();
 static void printVersion();
@@ -116,16 +117,13 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    bool gwEnabled = false;
+    gateway::Config gwConfig;
     if (argc > 2)
     {
-        const int err = parseGatewayArgs(argc, argv);
+        const int err = parseGatewayArgs(argc, argv, gwConfig);
         if (err) { return 1; }
-        else
-        {
-            // TODO
-            LOG_ERR("the gateway is not yet implemented");
-            return 1;
-        }
+        else { gwEnabled = true; }
     }
 
 
@@ -140,8 +138,11 @@ int main(int argc, char** argv)
 
 
 
-int parseGatewayArgs(int argc, char** argv)
+int parseGatewayArgs(int argc, char** argv, gateway::Config& cfg)
 {
+    int err;
+    gateway::ProtocolConfig protoCfg;
+
     if (argc < 5)
     {
         LOG_ERR("missing gateway arguments");
@@ -152,11 +153,35 @@ int parseGatewayArgs(int argc, char** argv)
     const char* const spcfgStr = argv[2];
     const char* const portStr = argv[3];
     const char* const baudStr = argv[4];
+    const char* cfgStr = "8N1";
+    if (argc > 5) { cfgStr = argv[5]; }
 
-    LOG_ERR("%s is not yet implemented", UTIL__FUNCNAME__);
-    return -(__LINE__);
+    err = protoCfg.parse(spcfgStr);
+    if (err)
+    {
+        LOG_ERR("invalid protocol config: %s", spcfgStr);
+        return -(__LINE__);
+    }
 
-    if (argc > 5) { const char* const cfgStr = argv[5]; }
+    const long long baud = std::atoll(baudStr);
+    if ((baud < 1) || (baud > UINT32_MAX))
+    {
+        LOG_ERR("invalid baud rate: %s", baudStr);
+        return -(__LINE__);
+    }
+
+    cfg.setProtocolConfig(protoCfg);
+    cfg.setPort(portStr);
+    cfg.setBaud((uint32_t)baud);
+
+    err = cfg.parseConfig(cfgStr);
+    if (err)
+    {
+        LOG_ERR("invalid serial port config: %s", cfgStr);
+        return -(__LINE__);
+    }
+
+    return 0;
 }
 
 void printHelp()

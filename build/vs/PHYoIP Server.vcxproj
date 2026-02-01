@@ -138,7 +138,11 @@
   <ItemGroup>
     <ClCompile Include="..\..\common\src\ansi-esc.cpp" />
     <ClCompile Include="..\..\common\src\windows.cpp" />
+    <ClCompile Include="..\..\src\gateway.cpp" />
     <ClCompile Include="..\..\src\main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\gateway.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
