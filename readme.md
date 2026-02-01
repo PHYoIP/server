@@ -8,7 +8,6 @@ If a serial port is specified, the server acts as a gateway server (= server wit
 Usage:
 ```
 phyoip-server PORT [SPCFG DEV BAUD [CONFIG]]
-phyoip-server --version
 phyoip-server --help
 ```
 

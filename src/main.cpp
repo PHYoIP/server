@@ -4,13 +4,22 @@ date            01.02.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <string>
 
 #include "common/ansi-esc.h"
+#include "common/util/macros.h"
 #include "common/windows.h"
 #include "project.h"
+
+
+#define LOG_MODULE_LEVEL LOG_LEVEL_DBG
+#define LOG_MODULE_NAME  MAIN
+#include "common/log.h"
 
 
 
@@ -21,7 +30,7 @@ using std::setw;
 
 
 namespace argstr {
-// static const char* const noColor = "--no-colour";
+static const char* const noColour = "--no-colour";
 static const char* const help = "--help";
 static const char* const version = "--version";
 
@@ -34,6 +43,7 @@ static const std::string usageString = std::string(prj::binName) + " PORT [SPCFG
 
 
 
+static int parseGatewayArgs(int argc, char** argv);
 static void printHelp();
 static void printUsageAndTryHelp();
 static void printVersion();
@@ -49,20 +59,33 @@ int main(int argc, char** argv)
         //"--help",
         //"--version",
 
+        "5055",
+
+        "A,LF",
+        //"A,LF,24",
+
+        "COM7",
+
+        "115200",
+
+        "7E2",
+
+        //"--no-colour",
+
         NULL,
     };
     argc = (sizeof(dbgArgs) / sizeof(dbgArgs[0])) - 1; // don't count the NULL terminator element
     argv = dbgArgs;
 #endif
 
-#if PRJ_DEBUG && 1
-    ansi::initEscapeCodes(true);
+    if (argstr::contains(argc, argv, argstr::noColour)) { ansi::initEscapeCodes(false); }
+    else
+    {
+        ansi::initEscapeCodes(true);
 #ifdef _WIN32
-    windows::enableVTProcessing();
+        windows::enableVTProcessing();
 #endif
-#else
-    ansi::initEscapeCodes(false);
-#endif
+    }
 
     if (argstr::contains(argc, argv, argstr::help))
     {
@@ -76,10 +99,65 @@ int main(int argc, char** argv)
         return 0;
     }
 
+
+
+    if (argc < 2)
+    {
+        LOG_ERR("missing PORT");
+        printUsageAndTryHelp();
+        return 1;
+    }
+
+    const int port = std::atoi(argv[1]);
+    if ((port < 1) || (port > UINT16_MAX))
+    {
+        LOG_ERR("invalid port: %s", argv[1]);
+        printUsageAndTryHelp();
+        return 1;
+    }
+
+    if (argc > 2)
+    {
+        const int err = parseGatewayArgs(argc, argv);
+        if (err) { return 1; }
+        else
+        {
+            // TODO
+            LOG_ERR("the gateway is not yet implemented");
+            return 1;
+        }
+    }
+
+
+
+    // TODO
+    LOG_INF("%sStart Server", ansi::esc[SGR_FG_BGREEN]);
+
+
+
     return 0;
 }
 
 
+
+int parseGatewayArgs(int argc, char** argv)
+{
+    if (argc < 5)
+    {
+        LOG_ERR("missing gateway arguments");
+        printUsageAndTryHelp();
+        return -(__LINE__);
+    }
+
+    const char* const spcfgStr = argv[2];
+    const char* const portStr = argv[3];
+    const char* const baudStr = argv[4];
+
+    LOG_ERR("%s is not yet implemented", UTIL__FUNCNAME__);
+    return -(__LINE__);
+
+    if (argc > 5) { const char* const cfgStr = argv[5]; }
+}
 
 void printHelp()
 {
@@ -89,8 +167,6 @@ void printHelp()
     cout << endl;
     cout << "Usage:" << endl;
     cout << "  " << usageString << endl;
-    cout << "  " << prj::binName << " --version" << endl;
-    cout << "  " << prj::binName << " --help" << endl;
     cout << endl;
     cout << "PORT:   TCP port to listen for clients" << endl;
     cout << "SPCFG:  serial protocol config" << endl;
@@ -99,7 +175,7 @@ void printHelp()
     cout << "CONFIG: serial config, default: 8N1" << endl;
     cout << endl;
     cout << "Options:" << endl;
-    // cout << std::left << setw(lw) << std::string("  ") + argstr::noColor << "monochrome console output" << endl;
+    cout << std::left << setw(lw) << std::string("  ") + argstr::noColour << "monochrome console output" << endl;
     cout << std::left << setw(lw) << std::string("  ") + argstr::help << "prints this help text" << endl;
     cout << std::left << setw(lw) << std::string("  ") + argstr::version << "prints version info" << endl;
     cout << endl;
@@ -191,7 +267,12 @@ const char* PRJ___versionStr___()
 
         if (!((printRes > 0) && (printRes < sizeof(tmp))))
         {
+#ifdef _MSC_VER
+#pragma warning(suppress :4996)
             strncpy(tmp, "X.Y.Z-pr+build", sizeof(tmp));
+#else
+            strncpy(tmp, "X.Y.Z-pr+build", sizeof(tmp));
+#endif
             tmp[sizeof(tmp) - 1] = 0;
         }
     }
@@ -199,3 +280,8 @@ const char* PRJ___versionStr___()
     return tmp;
 }
 #endif // PRJ_VERSION_STR
+
+
+
+#define COMMON_LOG_DEFINE_FUNCTIONS
+#include "common/log.h"

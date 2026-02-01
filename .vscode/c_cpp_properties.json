@@ -13,6 +13,7 @@
                 //"__linux__",
                 //"_GNU_SOURCE",
                 "_DEBUG",
+                "CONFIG_LOG_MAX_LEVEL=4",
             ],
             //"compilerPath": "",
             //"cppStandard": "c++17",

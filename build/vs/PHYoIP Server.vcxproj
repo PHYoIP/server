@@ -85,7 +85,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CONFIG_LOG_MAX_LEVEL=4;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <ObjectFileName>$(IntDir)obj/a/b/%(RelativeDir)</ObjectFileName>
       <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/src;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
@@ -97,7 +97,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CONFIG_LOG_MAX_LEVEL=4;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <ObjectFileName>$(IntDir)obj/a/b/%(RelativeDir)</ObjectFileName>
       <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/src;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
