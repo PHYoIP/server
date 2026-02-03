@@ -64,6 +64,7 @@ int main(int argc, char** argv)
 
         "A,LF",
         //"A,LF,24",
+        //"A,0103",
 
         "COM7",
 

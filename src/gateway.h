@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            01.02.2026
+date            03.02.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -34,17 +34,24 @@ public:
     int parse(const char* arg);
 
     bool twoStop() const { return (m_stop[1] != 0); }
+    bool hasLengthSpecifier() const { return (m_posLen != noLen); }
 
 private:
     Mode m_mode;
 
     // ASCII parameters
-    char m_start;
-    char m_stop[2];
+    char m_start;   // null if not used
+    char m_stop[2]; // [0] the stop symbol (may be null), [1] null if symbol is only one char
 
     // binary parameters
     uint32_t m_timeout;
     size_t m_posLen;
+
+    static constexpr size_t noLen = (size_t)(-1);
+
+    int m_setMode(const std::string& field);
+    int m_setAsciiParam(const std::string& field, size_t idx);
+    int m_setBinParam(const std::string& field, size_t idx);
 };
 
 class Config
