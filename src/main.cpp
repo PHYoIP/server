@@ -13,6 +13,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 
 #include "common/ansi-esc.h"
 #include "common/windows.h"
+#include "common/winsock.h"
 #include "gateway.h"
 #include "project.h"
 #include "util/macros.h"
@@ -53,6 +54,8 @@ static void printVersion();
 
 int main(int argc, char** argv)
 {
+    int err;
+
 #if PRJ_DEBUG && 1
     char* dbgArgs[] = {
         argv[0],
@@ -129,8 +132,18 @@ int main(int argc, char** argv)
 
 
 
+#ifdef _WIN32
+    err = winsock::init();
+    if (err) { return 1; }
+#endif
+
     // TODO
     LOG_INF("%sStart Server", ansi::esc[SGR_FG_BGREEN]);
+
+#ifdef _WIN32
+    err = winsock::cleanup();
+    if (err) { return 1; }
+#endif
 
 
 
