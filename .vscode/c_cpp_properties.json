@@ -5,7 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/src",
                 "${workspaceFolder}/common/include",
-                "${workspaceFolder}/common/src",
+                "${workspaceFolder}/common/util",
                 "${workspaceFolder}/protocol/include",
             ],
             "defines": [

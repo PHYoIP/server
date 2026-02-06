@@ -12,10 +12,10 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include <string>
 
 #include "common/ansi-esc.h"
-#include "common/util/macros.h"
 #include "common/windows.h"
 #include "gateway.h"
 #include "project.h"
+#include "util/macros.h"
 
 
 #define LOG_MODULE_LEVEL LOG_LEVEL_DBG

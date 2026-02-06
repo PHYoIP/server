@@ -10,8 +10,8 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include <string>
 
 #include "common/string.h"
-#include "common/util/macros.h"
 #include "gateway.h"
+#include "util/macros.h"
 
 
 #define LOG_MODULE_LEVEL LOG_LEVEL_DBG

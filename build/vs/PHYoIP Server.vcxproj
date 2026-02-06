@@ -88,7 +88,7 @@
       <PreprocessorDefinitions>CONFIG_LOG_MAX_LEVEL=4;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <ObjectFileName>$(IntDir)obj/a/b/%(RelativeDir)</ObjectFileName>
-      <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/src;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/util;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -100,7 +100,7 @@
       <PreprocessorDefinitions>CONFIG_LOG_MAX_LEVEL=4;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <ObjectFileName>$(IntDir)obj/a/b/%(RelativeDir)</ObjectFileName>
-      <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/src;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/util;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -112,7 +112,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <ObjectFileName>$(IntDir)obj/a/b/%(RelativeDir)</ObjectFileName>
-      <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/src;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/util;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -126,7 +126,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
       <ObjectFileName>$(IntDir)obj/a/b/%(RelativeDir)</ObjectFileName>
-      <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/src;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/util;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>false</GenerateDebugInformation>
