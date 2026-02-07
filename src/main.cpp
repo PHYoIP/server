@@ -37,6 +37,24 @@ using std::setw;
 
 
 
+enum ERRORCODE
+{
+    EC_OK = 0,
+    EC_ERROR = 1,
+
+    EC__begin_ = 79,
+
+    EC_WINSOCK = EC__begin_,
+    EC_SERVER,
+    EC_GATEWAY,
+
+    EC__end_,
+    EC__max_ = 113,
+};
+static_assert(EC__end_ <= EC__max_, "too many error codes defined");
+
+
+
 namespace argstr {
 static const char* const noColour = "--no-colour";
 static const char* const help = "--help";
@@ -114,13 +132,13 @@ int main(int argc, char** argv)
     if (argstr::contains(argc, argv, argstr::help))
     {
         printHelp();
-        return 0;
+        return EC_OK;
     }
 
     if (argstr::contains(argc, argv, argstr::version))
     {
         printVersion();
-        return 0;
+        return EC_OK;
     }
 
 
@@ -134,7 +152,7 @@ int main(int argc, char** argv)
         {
             LOG_ERR("invalid port: %s", portStr);
             printUsageAndTryHelp();
-            return 1;
+            return EC_ERROR;
         }
     }
 
@@ -143,7 +161,7 @@ int main(int argc, char** argv)
     if (argc > 2)
     {
         const int err = parseGatewayArgs(argc, argv, gwConfig);
-        if (err) { return 1; }
+        if (err) { return EC_ERROR; }
         else { gwEnabled = true; }
     }
 
@@ -151,10 +169,8 @@ int main(int argc, char** argv)
 
 #ifdef _WIN32
     err = winsock::init();
-    if (err) { return 1; }
+    if (err) { return EC_WINSOCK; }
 #endif
-
-    LOG_DBG("%sstarting server", ansi::esc[SGR_FG_BGREEN]);
 
     terminateSignal = 0;
 #ifdef _WIN32
@@ -177,12 +193,14 @@ int main(int argc, char** argv)
 
 #ifdef _WIN32
     err = winsock::cleanup();
-    if (err) { return 1; }
+    if (err) { return EC_WINSOCK; }
 #endif
 
 
 
-    return 0;
+    if (srv.sd.error()) { return EC_SERVER; }
+
+    return EC_OK;
 }
 
 
