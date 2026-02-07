@@ -137,6 +137,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\common\src\ansi-esc.cpp" />
+    <ClCompile Include="..\..\common\src\socket.cpp" />
     <ClCompile Include="..\..\common\src\string.cpp" />
     <ClCompile Include="..\..\common\src\windows.cpp" />
     <ClCompile Include="..\..\common\src\winsock.cpp" />
