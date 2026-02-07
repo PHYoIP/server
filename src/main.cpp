@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            01.02.2026
+date            07.02.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -10,13 +10,19 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <thread>
 
 #include "common/ansi-esc.h"
+#include "common/string.h"
 #include "common/windows.h"
 #include "common/winsock.h"
 #include "gateway.h"
 #include "project.h"
+#include "server.h"
 #include "util/macros.h"
+#include "util/time.h"
+
+#include <signal.h>
 
 
 #define LOG_MODULE_LEVEL LOG_LEVEL_DBG
@@ -41,7 +47,13 @@ static bool contains(int argc, char** argv, const std::string& arg);
 
 
 
-static const std::string usageString = std::string(prj::binName) + " PORT [SPCFG DEV BAUD [CONFIG]]";
+static const std::string usageString = std::string(prj::binName) + " [PORT [SPCFG DEV BAUD [CONFIG]]]";
+
+
+
+static int terminateSignal; // Choosing `int` over `bool` to omit compiler bit check shenanigans in interrupt (aldough
+                            // `SIGINT` is handled in a new thread, not an interrupt, in Windows). The lack of thread
+                            // syncronisation is ok for this one.
 
 
 
@@ -49,6 +61,12 @@ static int parseGatewayArgs(int argc, char** argv, gateway::Config& cfg);
 static void printHelp();
 static void printUsageAndTryHelp();
 static void printVersion();
+
+#ifdef _WIN32
+static void handleSigintWin(int sig);
+#else
+static void signalHandlerXnix(int sig);
+#endif
 
 
 
@@ -63,7 +81,8 @@ int main(int argc, char** argv)
         //"--help",
         //"--version",
 
-        "5055",
+        "1234",
+        //"0",
 
         "A,LF",
         //"A,LF,24",
@@ -106,19 +125,17 @@ int main(int argc, char** argv)
 
 
 
-    if (argc < 2)
+    int port = 0;
+    if (argc >= 2)
     {
-        LOG_ERR("missing PORT");
-        printUsageAndTryHelp();
-        return 1;
-    }
-
-    const int port = std::atoi(argv[1]);
-    if ((port < 1) || (port > UINT16_MAX))
-    {
-        LOG_ERR("invalid port: %s", argv[1]);
-        printUsageAndTryHelp();
-        return 1;
+        const char* const portStr = argv[1];
+        port = std::atoi(portStr);
+        if (!comm::isUInteger(portStr) || (port < 0) || (port > UINT16_MAX))
+        {
+            LOG_ERR("invalid port: %s", portStr);
+            printUsageAndTryHelp();
+            return 1;
+        }
     }
 
     bool gwEnabled = false;
@@ -137,8 +154,26 @@ int main(int argc, char** argv)
     if (err) { return 1; }
 #endif
 
-    // TODO
-    LOG_INF("%sStart Server", ansi::esc[SGR_FG_BGREEN]);
+    LOG_DBG("%sstarting server", ansi::esc[SGR_FG_BGREEN]);
+
+    terminateSignal = 0;
+#ifdef _WIN32
+    signal(SIGINT, handleSigintWin);
+#else
+#warning "TODO add signal handling" // sigaction(2)
+#endif
+
+    server::Server srv((uint16_t)port);
+    std::thread thServer(server::Server::task, &srv);
+
+    while (srv.sd.status() != thread::Status::killed)
+    {
+        if (terminateSignal) { srv.sd.terminate(); }
+
+        UTIL_sleep_ms(10);
+    }
+
+    thServer.join();
 
 #ifdef _WIN32
     err = winsock::cleanup();
@@ -207,7 +242,7 @@ void printHelp()
     cout << "Usage:" << endl;
     cout << "  " << usageString << endl;
     cout << endl;
-    cout << "PORT:   TCP port to listen for clients" << endl;
+    cout << "PORT:   TCP port to listen for clients (0 for default)" << endl;
     cout << "SPCFG:  serial protocol config" << endl;
     cout << "DEV:    serial port, e.g.: \"/dev/ttyS4\", \"COM3\"" << endl;
     cout << "BAUD:   baudrate of the serial port" << endl;
@@ -266,6 +301,28 @@ void printVersion()
     cout << "License: GNU GPLv3 <http://gnu.org/licenses/>." << endl;
     cout << "This is free software. There is NO WARRANTY." << endl;
 }
+
+static inline void handleSigterm()
+{
+    LOG_DBG("%s", __func__);
+
+    terminateSignal = 1;
+}
+
+#ifdef _WIN32
+void handleSigintWin(int sig)
+{
+    handleSigterm();
+
+    // don't reassign, so the second CTRL+C is handled in the system default manner
+    // signal(SIGINT, handleSigintWin);
+}
+#else
+void signalHandlerXnix(int sig)
+{
+    if ((sig == SIGINT) || (sig == SIGTERM)) { handleSigterm(); }
+}
+#endif
 
 bool argstr::contains(int argc, char** argv, const std::string& arg)
 {

@@ -140,11 +140,14 @@
     <ClCompile Include="..\..\common\src\string.cpp" />
     <ClCompile Include="..\..\common\src\windows.cpp" />
     <ClCompile Include="..\..\common\src\winsock.cpp" />
+    <ClCompile Include="..\..\common\util\util\time.c" />
     <ClCompile Include="..\..\src\gateway.cpp" />
     <ClCompile Include="..\..\src\main.cpp" />
+    <ClCompile Include="..\..\src\server.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\gateway.h" />
+    <ClInclude Include="..\..\src\server.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -7,15 +7,16 @@ If a serial port is specified, the server acts as a gateway server (= server wit
 
 Usage:
 ```
-phyoip-server PORT [SPCFG DEV BAUD [CONFIG]]
+phyoip-server [PORT [SPCFG DEV BAUD [CONFIG]]]
 phyoip-server --help
 ```
 
 Examples:
 ```sh
+phyoip-server # using the default port
 phyoip-server 1234
 phyoip-server 1234 A,0D0A /dev/ttyS4 115200
-phyoip-server 1234 B,1500 COM7 19200
+phyoip-server 0 B,1500 COM7 19200 # using the default port
 phyoip-server 1234 A,0A,24 COM3 9600 8E2
 ```
 
