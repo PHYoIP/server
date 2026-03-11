@@ -1,15 +1,17 @@
 /*
 author          Oliver Blaser
-date            07.02.2026
+date            10.03.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
 #ifndef IG_SERVER_H
 #define IG_SERVER_H
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
+#include "client.h"
 #include "common/socket.h"
 #include "common/thread.h"
 
@@ -47,6 +49,7 @@ class Server
 {
 public:
     static constexpr int listenBacklog = 50;
+    static constexpr size_t maxClients = 20;
 
     static void task(Server* srv);
 
@@ -73,8 +76,13 @@ private:
     /// \name Task Internal
     /// These are only accesed within `Server::task()` and do not need to be initialised in constructor.
     /// @{
+
     int state;
     sockfd_t sockfd;
+    std::array<client::Client, maxClients> clients;
+
+    void spawnClient(sockfd_t connfd, const void* sockaddr_in);
+
     /// @}
 };
 

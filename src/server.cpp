@@ -1,11 +1,12 @@
 /*
 author          Oliver Blaser
-date            07.02.2026
+date            11.03.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
 #include <cstddef>
 #include <cstdint>
+#include <thread>
 
 #include "common/ansi-esc.h"
 #include "common/socket.h"
@@ -23,6 +24,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 
 #else // *nix
 
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -67,7 +69,7 @@ void server::Server::task(Server* srv)
             break;
 
         case S_open:
-            srv->sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+            srv->sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); // TODO non blocking (quick ref: https://www.scottklement.com/rpg/socktut/nonblocking.html)
             if (srv->sockfd < 0)
             {
                 LOG_ERR_SOCKET("socket() failed");
@@ -134,13 +136,7 @@ void server::Server::task(Server* srv)
 
                 LOG_ERR_SOCKET("accept() failed");
             }
-            else
-            {
-                LOG_WRN("TODO handle connection"); // for now just closing right away
-
-                const int err = sockclose(connfd);
-                if (err) { LOG_ERR_SOCKET("close(connfd) failed"); }
-            }
+            else { srv->spawnClient(connfd, &addr); }
 
             if (srv->sd.sigterm())
             {
@@ -154,19 +150,32 @@ void server::Server::task(Server* srv)
 
 
         case S_terminate:
-            // clean up connections
-            // ...
+        {
+            bool allClientsClosed = true;
 
-            // close socket
-            if (0 != sockclose(srv->sockfd))
+            // clean up connections
+            for (size_t i = 0; i < srv->clients.size(); ++i)
             {
-                LOG_ERR_SOCKET("close(sockfd) failed");
-                if (!srv->sd.error()) { srv->sd.setError(-(__LINE__)); }
+                srv->clients[i].sd.terminate();
+
+                const auto status = srv->clients[i].sd.status();
+                if ((status != thread::Status::null) && (status != thread::Status::killed)) { allClientsClosed = false; }
             }
 
-            // exit/kill thread
-            srv->state = S_kill;
-            break;
+            if (allClientsClosed)
+            {
+                // close socket
+                if (0 != sockclose(srv->sockfd))
+                {
+                    LOG_ERR_SOCKET("close(sockfd) failed");
+                    if (!srv->sd.error()) { srv->sd.setError(-(__LINE__)); }
+                }
+
+                // exit/kill thread
+                srv->state = S_kill;
+            }
+        }
+        break;
 
         case S_kill:
             srv->sd.kill();
@@ -178,8 +187,62 @@ void server::Server::task(Server* srv)
             break;
         }
 
-        UTIL_sleep_us(500);
+        UTIL_sleep_ms(5);
     }
 
     srv->sd.setStatus(thread::Status::killed);
+}
+
+void server::Server::spawnClient(sockfd_t connfd, const void* sockaddr_in)
+{
+    const struct sockaddr_in* const addr = (const struct sockaddr_in*)sockaddr_in;
+    char addrString[SOCKADDRSTRLEN];
+    int err;
+    size_t idx;
+    bool accept = false;
+
+    if (!sockaddrtos(addr, addrString, sizeof(addrString)))
+    {
+        addrString[0] = '-';
+        addrString[1] = 0;
+    }
+
+    for (size_t i = 0; i < clients.size(); ++i)
+    {
+        const auto status = clients[i].sd.status();
+        if ((status == thread::Status::null) || (status == thread::Status::killed))
+        {
+            accept = true;
+            idx = i;
+            break;
+        }
+    }
+
+    if (accept)
+    {
+        char buffer[INET_ADDRSTRLEN];
+
+        err = clients[idx].reset(connfd, inet_ntop(addr->sin_family, &(addr->sin_addr.s_addr), buffer, sizeof(buffer)), ntohs(addr->sin_port));
+        if (err)
+        {
+            LOG_ERR("failed to reset client %zu, rejecting %s", idx, addrString);
+
+            err = sockclose(connfd);
+            if (err) { LOG_ERR_SOCKET("close(connfd) failed"); }
+        }
+        else
+        {
+            std::thread th(server::client::Client::task, &(clients[idx]));
+            th.detach();
+        }
+    }
+    else
+    {
+        LOG_WRN("can't accept more than %zu client connections, rejecting %s", Server::maxClients, addrString);
+
+        // TODO gracefully disconnect on protocol level
+
+        err = sockclose(connfd);
+        if (err) { LOG_ERR_SOCKET("close(connfd) failed"); }
+    }
 }

@@ -184,7 +184,11 @@ int main(int argc, char** argv)
 
     while (srv.sd.status() != thread::Status::killed)
     {
-        if (terminateSignal) { srv.sd.terminate(); }
+        if (terminateSignal)
+        {
+            LOG_INF("received SIGTERM/SIGINT");
+            srv.sd.terminate();
+        }
 
         UTIL_sleep_ms(10);
     }
