@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            11.03.2026
+date            29.03.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -88,6 +88,8 @@ namespace client {
         uint16_t m_port;
 
         void m_task();
+        int m_taskRecv();
+        int m_taskSend();
     };
 
 

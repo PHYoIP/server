@@ -171,7 +171,6 @@ void server::Server::task(Server* srv)
             if (srv->sd.sigterm())
             {
                 LOG_INF("terminating");
-                srv->sd.setStatus(thread::Status::terminating);
                 srv->state = S_terminate;
             }
         }
@@ -181,6 +180,8 @@ void server::Server::task(Server* srv)
 
         case S_terminate:
         {
+            srv->sd.setStatus(thread::Status::terminating);
+
             bool allClientsClosed = true;
 
             // clean up connections
@@ -255,13 +256,23 @@ void server::Server::spawnClient(sockfd_t connfd, const void* sockaddr_in)
         err = clients[idx].reset(connfd, inet_ntop(addr->sin_family, &(addr->sin_addr.s_addr), buffer, sizeof(buffer)), ntohs(addr->sin_port));
         if (err)
         {
-            LOG_ERR("failed to reset client %zu, rejecting %s", idx, addrString);
+            LOG_ERR("failed to reset client #%zu, rejecting %s", idx, addrString);
 
             err = sockclose(connfd);
             if (err) { LOG_ERR_SOCKET("close(connfd) failed"); }
         }
         else
         {
+#if LOG_LEVEL_IS_ENABLED(LOG_LEVEL_DBG)
+            size_t nActiveClients = 1; // this new one is not yet marked as running
+            for (size_t i = 0; i < clients.size(); ++i)
+            {
+                const auto status = clients[i].sd.status();
+                if ((status != thread::Status::null) && (status != thread::Status::killed)) { ++nActiveClients; }
+            }
+            LOG_DBG("client #%zu (%zu/%zu): %s", idx, nActiveClients, Server::maxClients, addrString);
+#endif
+
             std::thread th(server::client::Client::task, &(clients[idx]));
             th.detach();
         }

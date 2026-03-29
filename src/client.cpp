@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            11.03.2026
+date            29.03.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -82,23 +82,62 @@ void server::client::Client::m_task()
         switch (state)
         {
         case S_init:
+        {
             LOG_DBG("started thread for client %s", m_addr.c_str());
-            sd.setStatus(thread::Status::running);
-            state = S_idle;
-            break;
+
+            int err;
+#ifdef _WIN32
+            unsigned long ul = 1;
+            err = ioctlsocket(m_connfd, FIONBIO, &ul);
+            if (err) { LOG_ERR_WSA("ioctlsocket(FIONBIO) failed", WSAGetLastError()); }
+#else
+            int flags = fcntl(m_connfd, F_GETFL);
+            err = fcntl(m_connfd, F_SETFL, flags | O_NONBLOCK);
+            if (err) { LOG_ERR_ERRNO("fcntl(O_NONBLOCK) failed", errno); }
+#endif
+
+            if (err)
+            {
+                sd.setError(-(__LINE__));
+                state = S_terminate;
+            }
+            else
+            {
+                sd.setStatus(thread::Status::running);
+                state = S_idle;
+            }
+        }
+        break;
 
         case S_idle:
         {
+            int err;
+
+            err = m_taskRecv();
+            if (err)
+            {
+                sd.setError(err);
+                state = S_terminate;
+            }
+
+            err = m_taskSend();
+            if (err)
+            {
+                sd.setError(err);
+                state = S_terminate;
+            }
+
             if (sd.sigterm())
             {
                 LOG_INF("terminating");
-                sd.setStatus(thread::Status::terminating);
                 state = S_terminate;
             }
         }
         break;
 
         case S_terminate:
+
+            sd.setStatus(thread::Status::terminating);
 
             LOG_DBG("terminating thread for client %s", m_addr.c_str());
 
@@ -129,4 +168,49 @@ void server::client::Client::m_task()
 
     LOG_DBG("exited thread for client %s", m_addr.c_str());
     sd.setStatus(thread::Status::killed);
+}
+
+int server::client::Client::m_taskRecv()
+{
+    uint8_t buffer[512];
+
+    const ssize_t res = recv(m_connfd, (char*)buffer,
+#if 0
+                             sizeof(buffer),
+#else
+                             (size_t)(5 + (rand() % 20)),
+#endif
+                             0);
+    if (res == 0)
+    {
+        LOG_ERR("the client closed the connection unexpectedly");
+        return -(__LINE__);
+    }
+    else if (res < 0)
+    {
+        if (
+#ifdef _WIN32
+            (WSAGetLastError() != WSAEWOULDBLOCK)
+#else
+            (errno != EAGAIN) && (errno != EWOULDBLOCK)
+#endif
+        )
+        {
+            LOG_ERR_SOCKET("recv() failed");
+            return -(__LINE__);
+        }
+    }
+    else
+    {
+        LOG_DBG_HD(buffer, (size_t)res, "received chunk:");
+        // ...
+    }
+
+    return 0;
+}
+
+int server::client::Client::m_taskSend()
+{
+    // ...
+    return 0;
 }
