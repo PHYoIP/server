@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            10.03.2026
+date            29.03.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -48,7 +48,7 @@ public:
 class Server
 {
 public:
-    static constexpr int listenBacklog = 50;
+    static constexpr int listenBacklog = 5;
     static constexpr size_t maxClients = 20;
 
     static void task(Server* srv);

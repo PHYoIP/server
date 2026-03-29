@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            11.03.2026
+date            29.03.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -76,7 +76,26 @@ void server::Server::task(Server* srv)
                 srv->sd.setError(-(__LINE__));
                 srv->state = S_kill;
             }
-            else { srv->state = S_bind; }
+            else
+            {
+                int err;
+#ifdef _WIN32
+                unsigned long ul = 1;
+                err = ioctlsocket(srv->sockfd, FIONBIO, &ul);
+                if (err) { LOG_ERR_WSA("ioctlsocket(FIONBIO) failed", WSAGetLastError()); }
+#else
+                int flags = fcntl(srv->sockfd, F_GETFL);
+                err = fcntl(srv->sockfd, F_SETFL, flags | O_NONBLOCK);
+                if (err) { LOG_ERR_ERRNO("fcntl(O_NONBLOCK) failed", errno); }
+#endif
+
+                if (err)
+                {
+                    srv->sd.setError(-(__LINE__));
+                    srv->state = S_terminate;
+                }
+                else { srv->state = S_bind; }
+            }
             break;
 
         case S_bind:
@@ -129,12 +148,23 @@ void server::Server::task(Server* srv)
             struct sockaddr_in addr;
             socklen_t addrlen = sizeof(addr);
 
-            const sockfd_t connfd = accept(srv->sockfd, (struct sockaddr*)(&addr), &addrlen); // TODO async
+            const sockfd_t connfd = accept(srv->sockfd, (struct sockaddr*)(&addr), &addrlen);
             if (connfd < 0)
             {
-                // TODO ? error counter
+#ifdef _WIN32
+                errno = -1;
+                const int wserr = WSAGetLastError();
+                if (wserr == WSAEWOULDBLOCK) { errno = EWOULDBLOCK; }
+#endif
 
-                LOG_ERR_SOCKET("accept() failed");
+                if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) { (void)0; } // nop, sleep is done at end of loop
+                // else if (errno == ECONNABORTED) { (void)0; }
+                else if (errno == EINTR) { srv->sd.terminate(); }
+                else
+                {
+                    // TODO ? error counter
+                    LOG_ERR_SOCKET("accept() failed");
+                }
             }
             else { srv->spawnClient(connfd, &addr); }
 
