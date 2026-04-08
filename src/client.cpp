@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            29.03.2026
+date            08.04.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -64,6 +64,7 @@ int server::client::Client::reset(sockfd_t connfd, const std::string& addr, uint
     m_connfd = connfd;
     m_addr = addr;
     m_port = port;
+    m_registered = false;
 
     return 0;
 }
