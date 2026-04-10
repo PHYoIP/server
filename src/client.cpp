@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            08.04.2026
+date            10.04.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -62,7 +62,7 @@ int server::client::Client::reset(sockfd_t connfd, const std::string& addr, uint
     sd.reset();
 
     m_connfd = connfd;
-    m_addr = addr;
+    m_idstr = addr + ':' + std::to_string(port);
     m_port = port;
     m_registered = false;
 
@@ -80,11 +80,13 @@ void server::client::Client::m_task()
 
     while (!sd.sigkill())
     {
+        const time_t tNow = time(nullptr);
+
         switch (state)
         {
         case S_init:
         {
-            LOG_DBG("started thread for client %s", m_addr.c_str());
+            LOG_DBG("started thread for client %s", m_idstr.c_str());
 
             int err;
 #ifdef _WIN32
@@ -128,6 +130,13 @@ void server::client::Client::m_task()
                 state = S_terminate;
             }
 
+            if (!m_registered && ((tNow - tThreadStart) >= registerTimeout))
+            {
+                LOG_ERR("register timeout on client %s", m_idstr.c_str());
+                sd.setError(-(__LINE__));
+                state = S_terminate;
+            }
+
             if (sd.sigterm())
             {
                 LOG_INF("terminating");
@@ -140,7 +149,7 @@ void server::client::Client::m_task()
 
             sd.setStatus(thread::Status::terminating);
 
-            LOG_DBG("terminating thread for client %s", m_addr.c_str());
+            LOG_DBG("terminating thread for client %s", m_idstr.c_str());
 
             // close socket
             if (0 != sockclose(m_connfd))
@@ -167,7 +176,7 @@ void server::client::Client::m_task()
         UTIL_sleep_us(100);
     }
 
-    LOG_DBG("exited thread for client %s", m_addr.c_str());
+    LOG_DBG("exited thread for client %s", m_idstr.c_str());
     sd.setStatus(thread::Status::killed);
 }
 

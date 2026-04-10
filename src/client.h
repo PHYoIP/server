@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            08.04.2026
+date            10.04.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -55,14 +55,14 @@ namespace client {
     class Client
     {
     public:
-        static constexpr size_t bufferSize = 512;
-        static constexpr uint32_t registerTimeout = 10; // [s]
+        static constexpr size_t bufferSize = 1024;
+        static constexpr uint32_t registerTimeout = 30; // [s]
 
         static void task(Client* cnt) { cnt->m_task(); }
 
     public:
         Client()
-            : sd(), m_connfd(-1), m_addr(), m_port(0), m_registered(false)
+            : sd(), m_connfd(-1), m_idstr(), m_port(0), m_registered(false)
         {}
 
         virtual ~Client() {}
@@ -84,9 +84,11 @@ namespace client {
 
     private:
         sockfd_t m_connfd;
-        std::string m_addr;
+        std::string m_idstr; // client identifier string
         uint16_t m_port;
         bool m_registered;
+        uint8_t m_rxBuffer[Client::bufferSize];
+        uint8_t m_txBuffer[Client::bufferSize];
 
         void m_task();
         int m_taskRecv();
