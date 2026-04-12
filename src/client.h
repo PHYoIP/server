@@ -25,7 +25,7 @@ namespace client {
     {
     public:
         SharedData()
-            : thread::ThreadCtl(), m_err(0)
+            : thread::ThreadCtl(), m_err(0), m_clitype(0), m_id(0)
         {}
 
         virtual ~SharedData() {}
@@ -33,18 +33,30 @@ namespace client {
 
         // clang-format off
         int error() const { lock_guard lg(m_mtx); return m_err; }
-        void reset() { setError(0); thread::ThreadCtl::reset(); }
+        uint16_t clientType() const { lock_guard lg(m_mtx); return m_clitype; }
+        uintptr_t clientId() const { lock_guard lg(m_mtx); return m_id; }
+        void push() { lock_guard lg(m_mtx); /* m_queue.push */ }
         // clang-format on
 
+        void reset()
+        {
+            setError(0);
+            setClientInfo(0, 0);
+            // m_queue.clear();
+            thread::ThreadCtl::reset();
+        }
 
     private:
         int m_err;
+        uint16_t m_clitype;
+        uintptr_t m_id;
 
     public:
         // thread internal
 
         // clang-format off
         void setError(int err) { lock_guard lg(m_mtx); m_err = err; } ///< thread internal
+        void setClientInfo(uint16_t ct, uintptr_t id) { lock_guard lg(m_mtx); m_clitype = ct; m_id = id; } ///< thread internal
         // clang-format on
     };
 
@@ -97,7 +109,7 @@ namespace client {
         size_t m_txCount = 0;
         size_t m_txIdx = 0;
 
-        bool m_txBusy() const { return (m_txIdx < m_txCount); }
+        bool m_txBusy() const { return (m_txCount != 0); }
 
         void m_task();
         int m_taskRecv();
@@ -105,6 +117,9 @@ namespace client {
 
         int m_handleReceivedChunk(const uint8_t* data, size_t count);
         int m_handleReceivedPacket(const uint8_t* data, size_t count);
+        int m_handleCmp(const uint8_t* data, size_t count);
+        int m_handleCmpRegister(const uint8_t* data, size_t count);
+        int m_handleUart(const uint8_t* data, size_t count);
     };
 
 

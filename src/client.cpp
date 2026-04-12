@@ -17,7 +17,9 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include "util/macros.h"
 #include "util/time.h"
 
+#include <phyoip/protocol/cmp.h>
 #include <phyoip/protocol/phyoip.h>
+#include <phyoip/protocol/uart.h>
 
 #ifdef _WIN32
 
@@ -43,7 +45,10 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 
 
 
-#define TRIGF_SEND_PEER_INFO (0x0001)
+#define TRIGF_VALUE_MASK     (0x000000FF)
+#define TRIGF_SEND_ACK       (0x80000000)
+#define TRIGF_SEND_PEER_INFO (0x40000000)
+#define TRIGF_PERFORM_DELIST (0x20000000)
 
 
 
@@ -144,11 +149,36 @@ void server::client::Client::m_task()
                 state = S_terminate;
             }
 
+            if ((m_triggerFlags & TRIGF_SEND_ACK) && !m_txBusy())
+            {
+                const ssize_t res = packet::serialise::cmpAck(m_txBuffer, sizeof(m_txBuffer), (uint8_t)m_triggerFlags);
+                if (res > 0)
+                {
+                    m_txCount = (size_t)res;
+                    m_registered = true;
+                    m_triggerFlags &= ~(TRIGF_SEND_ACK);
+                }
+                else
+                {
+                    sd.setError(-(__LINE__));
+                    state = S_terminate;
+                }
+            }
+
             if (m_triggerFlags & TRIGF_SEND_PEER_INFO)
             {
+                LOG_ERR("TODO implement send peer info");
                 // packet::serialise::cmpPeerInfo(duf, bufsz, prj::appName, "PHYoIP server sample implementation", PRJ_VERSION_MAJ, PRJ_VERSION_MIN,
                 // PRJ_VERSION_STR);
                 // static_assert((PRJ_VERSION_MAJ <= UINT8_MAX) && (PRJ_VERSION_MIN <= UINT8_MAX));
+
+                m_triggerFlags &= ~(TRIGF_SEND_PEER_INFO);
+            }
+
+            if (m_triggerFlags & TRIGF_PERFORM_DELIST)
+            {
+                m_registered = false;
+                state = S_terminate;
             }
 
             if (!m_registered && ((tNow - tThreadStart) >= registerTimeout))
@@ -171,6 +201,13 @@ void server::client::Client::m_task()
             sd.setStatus(thread::Status::terminating);
 
             LOG_DBG("terminating thread for client %s", m_idstr.c_str());
+
+            if (m_registered)
+            {
+                LOG_WRN("TODO send PHYOIP_CMP_DELIST");
+                // send PHYOIP_CMP_DELIST
+                // wait for client to close the connection (poll recv()) or timeout
+            }
 
             // close socket
             if (0 != sockclose(m_connfd))
@@ -197,7 +234,7 @@ void server::client::Client::m_task()
         UTIL_sleep_us(100);
     }
 
-    LOG_DBG("exited thread for client %s", m_idstr.c_str());
+    LOG_DBG("exited thread for client %s (err: %i)", m_idstr.c_str(), sd.error());
     sd.setStatus(thread::Status::killed);
 }
 
@@ -241,8 +278,6 @@ int server::client::Client::m_taskRecv()
     }
     else
     {
-        LOG_DBG_HD(buffer, (size_t)res, "received chunk:");
-
         const int err = m_handleReceivedChunk(buffer, (size_t)res);
         if (err == 1)
         {
@@ -257,12 +292,46 @@ int server::client::Client::m_taskRecv()
 
 int server::client::Client::m_taskSend()
 {
-    // ...
+    if (m_txCount)
+    {
+        const ssize_t res = send(m_connfd, (char*)m_txBuffer + m_txIdx, m_txCount, 0); // on MSW `txCount` gets implicitly cast to `int`
+        if (res < 0)
+        {
+            if (
+#ifdef _WIN32
+                (WSAGetLastError() != WSAEWOULDBLOCK)
+#else
+                (errno != EAGAIN) && (errno != EWOULDBLOCK)
+#endif
+            )
+            {
+                LOG_ERR_SOCKET("send() failed");
+                if (0 != sockclose(m_connfd)) { LOG_ERR_SOCKET("close(connfd) failed"); }
+                return -(__LINE__);
+            }
+        }
+        else
+        {
+            size_t n = (size_t)res;
+            if (n > m_txCount)
+            {
+                LOG_ERR("written %zu of %zu bytes", n, m_txCount);
+                n = m_txCount; // clamp for correct math below
+            }
+
+            m_txIdx += n;
+            m_txCount -= n;
+        }
+    }
+    else { m_txIdx = 0; }
+
     return 0;
 }
 
 int server::client::Client::m_handleReceivedChunk(const uint8_t* data, size_t count)
 {
+    // LOG_DBG_HD(buffer, (size_t)res, "received chunk:");
+
     const uint8_t* p = data;
 
     while (p < (data + count))
@@ -302,6 +371,78 @@ int server::client::Client::m_handleReceivedChunk(const uint8_t* data, size_t co
 
 int server::client::Client::m_handleReceivedPacket(const uint8_t* data, size_t count)
 {
-    LOG_DBG_HD(data, count, "packet:");
+    // LOG_DBG_HD(data, count, "received packet:");
+
+    const struct phyoiphdr* const hdr = (const struct phyoiphdr*)(m_rxBuffer);
+    const size_t hsize = hdr->hsize;
+    const uint8_t proto = hdr->proto;
+
+    if (proto == PHYOIP_PROTO_CMP) { return m_handleCmp(data + hsize, count - hsize); }
+    else if (proto == PHYOIP_PROTO_UART) { return m_handleUart(data + hsize, count - hsize); }
+
+    LOG_ERR("can't handle packet with protocol 0x%02i from client %s", (int)proto, m_idstr.c_str());
+    return -(__LINE__);
+}
+
+int server::client::Client::m_handleCmp(const uint8_t* data, size_t count)
+{
+    if (count < sizeof(struct phyoip_cmphdr))
+    {
+        LOG_ERR("received invalid CMP packet (%zu bytes) from client %s", count, m_idstr.c_str());
+        return -(__LINE__);
+    }
+
+    const struct phyoip_cmphdr* const hdr = (const struct phyoip_cmphdr*)(data);
+    const size_t hsize = hdr->hsize;
+    const size_t dsize = ntohs(hdr->dsize);
+    const uint8_t type = hdr->type;
+
+    if (count < (hsize + dsize))
+    {
+        LOG_ERR("dropping invalid CMP packet from client %s: size (%zu) < hsize (%zu) + dsize (%zu)", m_idstr.c_str(), count, hsize, dsize);
+        LOG_DBG_HD(data, count, "data:");
+        return 0;
+    }
+
+    if (type == PHYOIP_CMP_REQPEERINFO) { m_triggerFlags |= TRIGF_SEND_PEER_INFO; }
+    else if (type == PHYOIP_CMP_PEERINFO) { (void)0; /* dropping peer info package */ }
+    else if (type == PHYOIP_CMP_REGISTER) { return m_handleCmpRegister(data + hsize, count - hsize); }
+    else if (type == PHYOIP_CMP_ACK)
+    {
+        LOG_ERR("received CMP ACK packet from client %s", m_idstr.c_str());
+        return -(__LINE__);
+    }
+    else if (type == PHYOIP_CMP_DELIST) { m_triggerFlags |= TRIGF_PERFORM_DELIST; }
+    else if (type == PHYOIP_CMP_XENV) { (void)0; /* dropping extension envelope package */ }
+    else { LOG_INF("dropping CMP packet with unknown type 0x%02x from client %s", (int)type, m_idstr.c_str()); }
+
+    return 0;
+}
+
+int server::client::Client::m_handleCmpRegister(const uint8_t* data, size_t count)
+{
+    if (count < sizeof(struct phyoip_cmpreg))
+    {
+        LOG_ERR("received invalid CMP register packet (%zu bytes) from client %s", count, m_idstr.c_str());
+        return -(__LINE__);
+    }
+
+    const struct phyoip_cmpreg* const cmpreg = (const struct phyoip_cmpreg*)(data);
+    const uint8_t proto = cmpreg->proto;
+    const uint16_t clitype = ntohs(cmpreg->clitype);
+
+    m_triggerFlags &= ~(TRIGF_VALUE_MASK);
+
+    if (proto != PHYOIP_PROTO_UART) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PROTO); }
+    else if (0 /* TODO check on server */) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PERM); }
+    else { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_OK); }
+
+    return 0;
+}
+
+int server::client::Client::m_handleUart(const uint8_t* data, size_t count)
+{
+    LOG_DBG_HD(data, count, "UART packet:");
+
     return 0;
 }
