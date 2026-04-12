@@ -8,6 +8,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include <cstdint>
 #include <thread>
 
+#include "client.h"
 #include "common/ansi-esc.h"
 #include "common/socket.h"
 #include "server.h"

@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            10.04.2026
+date            12.04.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -32,7 +32,8 @@ namespace client {
 
 
         // clang-format off
-    int error() const { lock_guard lg(m_mtx); return m_err; }
+        int error() const { lock_guard lg(m_mtx); return m_err; }
+        void reset() { setError(0); thread::ThreadCtl::reset(); }
         // clang-format on
 
 
@@ -43,7 +44,7 @@ namespace client {
         // thread internal
 
         // clang-format off
-    void setError(int err) { lock_guard lg(m_mtx); m_err = err; } ///< thread internal
+        void setError(int err) { lock_guard lg(m_mtx); m_err = err; } ///< thread internal
         // clang-format on
     };
 
@@ -61,9 +62,10 @@ namespace client {
         static void task(Client* cnt) { cnt->m_task(); }
 
     public:
-        Client()
-            : sd(), m_connfd(-1), m_idstr(), m_port(0), m_registered(false)
-        {}
+#ifdef _MSC_VER
+#pragma warning(suppress :26495)
+#endif
+        Client() {} ///< `Client::reset()` needs to be called on an instance before it can be run by  `Client::task()`.
 
         virtual ~Client() {}
 
@@ -83,16 +85,26 @@ namespace client {
         SharedData sd;
 
     private:
-        sockfd_t m_connfd;
+        sockfd_t m_connfd = -1;
         std::string m_idstr; // client identifier string
-        uint16_t m_port;
-        bool m_registered;
+        uint16_t m_port = 0;
+        bool m_registered = false;
+        uint32_t m_triggerFlags = 0;
+
         uint8_t m_rxBuffer[Client::bufferSize];
         uint8_t m_txBuffer[Client::bufferSize];
+        size_t m_rxIdx = 0;
+        size_t m_txCount = 0;
+        size_t m_txIdx = 0;
+
+        bool m_txBusy() const { return (m_txIdx < m_txCount); }
 
         void m_task();
         int m_taskRecv();
         int m_taskSend();
+
+        int m_handleReceivedChunk(const uint8_t* data, size_t count);
+        int m_handleReceivedPacket(const uint8_t* data, size_t count);
     };
 
 

@@ -89,6 +89,8 @@
       <WarningLevel>Level3</WarningLevel>
       <ObjectFileName>$(IntDir)obj/a/b/%(RelativeDir)</ObjectFileName>
       <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/util;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -101,6 +103,8 @@
       <WarningLevel>Level3</WarningLevel>
       <ObjectFileName>$(IntDir)obj/a/b/%(RelativeDir)</ObjectFileName>
       <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/util;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -113,6 +117,8 @@
       <WarningLevel>Level3</WarningLevel>
       <ObjectFileName>$(IntDir)obj/a/b/%(RelativeDir)</ObjectFileName>
       <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/util;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -127,6 +133,8 @@
       <WarningLevel>Level3</WarningLevel>
       <ObjectFileName>$(IntDir)obj/a/b/%(RelativeDir)</ObjectFileName>
       <AdditionalIncludeDirectories>$(ProjectDir)../../src;$(ProjectDir)../../common/include;$(ProjectDir)../../common/util;$(ProjectDir)../../protocol/include</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -137,6 +145,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\common\src\ansi-esc.cpp" />
+    <ClCompile Include="..\..\common\src\packet.cpp" />
     <ClCompile Include="..\..\common\src\socket.cpp" />
     <ClCompile Include="..\..\common\src\string.cpp" />
     <ClCompile Include="..\..\common\src\windows.cpp" />
@@ -145,13 +154,11 @@
     <ClCompile Include="..\..\src\client.cpp" />
     <ClCompile Include="..\..\src\gateway.cpp" />
     <ClCompile Include="..\..\src\main.cpp" />
-    <ClCompile Include="..\..\src\packet.cpp" />
     <ClCompile Include="..\..\src\server.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\client.h" />
     <ClInclude Include="..\..\src\gateway.h" />
-    <ClInclude Include="..\..\src\packet.h" />
     <ClInclude Include="..\..\src\server.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

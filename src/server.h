@@ -74,7 +74,7 @@ private:
 
 private:
     /// \name Task Internal
-    /// These are only accesed within `Server::task()` and do not need to be initialised in constructor.
+    /// These are only accessed within `Server::task()` and do not need to be initialised in constructor.
     /// @{
 
     int state;
