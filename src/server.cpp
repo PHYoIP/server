@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            29.03.2026
+date            12.04.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -13,6 +13,8 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include "common/socket.h"
 #include "server.h"
 #include "util/time.h"
+
+#include <phyoip/protocol/ports.h>
 
 #ifdef _WIN32
 
@@ -224,6 +226,14 @@ void server::Server::task(Server* srv)
 
     srv->sd.setStatus(thread::Status::killed);
 }
+
+server::Server::Server()
+    : sd(), m_port(PHYOIP_DEFAULT_PORT)
+{}
+
+server::Server::Server(uint16_t port)
+    : sd(), m_port(port ? port : PHYOIP_DEFAULT_PORT)
+{}
 
 void server::Server::spawnClient(sockfd_t connfd, const void* sockaddr_in)
 {

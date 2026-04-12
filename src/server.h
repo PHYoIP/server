@@ -54,14 +54,8 @@ public:
     static void task(Server* srv);
 
 public:
-    Server()
-        : sd(), m_port(0)
-    {}
-
-    Server(uint16_t port)
-        : sd(), m_port(port)
-    {}
-
+    Server();
+    Server(uint16_t port);
     virtual ~Server() {}
 
     uint16_t port() const { return m_port; }
