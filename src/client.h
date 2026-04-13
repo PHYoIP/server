@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            12.04.2026
+date            13.04.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -17,6 +17,9 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 
 
 namespace server {
+
+class Server;
+
 namespace client {
 
 
@@ -25,23 +28,23 @@ namespace client {
     {
     public:
         SharedData()
-            : thread::ThreadCtl(), m_err(0), m_clitype(0), m_id(0)
+            : thread::ThreadCtl(), m_err(0), m_clitype(0)
         {}
 
         virtual ~SharedData() {}
 
-
         // clang-format off
         int error() const { lock_guard lg(m_mtx); return m_err; }
         uint16_t clientType() const { lock_guard lg(m_mtx); return m_clitype; }
-        uintptr_t clientId() const { lock_guard lg(m_mtx); return m_id; }
+        void setClientType(uint16_t ct) { lock_guard lg(m_mtx); m_clitype = ct; } 
         void push() { lock_guard lg(m_mtx); /* m_queue.push */ }
         // clang-format on
 
         void reset()
         {
-            setError(0);
-            setClientInfo(0, 0);
+            lock_guard lg(m_mtx);
+            m_err = 0;
+            m_clitype = 0;
             // m_queue.clear();
             thread::ThreadCtl::reset();
         }
@@ -49,14 +52,13 @@ namespace client {
     private:
         int m_err;
         uint16_t m_clitype;
-        uintptr_t m_id;
 
     public:
         // thread internal
 
         // clang-format off
         void setError(int err) { lock_guard lg(m_mtx); m_err = err; } ///< thread internal
-        void setClientInfo(uint16_t ct, uintptr_t id) { lock_guard lg(m_mtx); m_clitype = ct; m_id = id; } ///< thread internal
+        void clearClientType() { lock_guard lg(m_mtx); m_clitype = 0; } ///< thread internal
         // clang-format on
     };
 
@@ -86,17 +88,19 @@ namespace client {
          *
          * If an error is returned, `Client::task(Client*)` must not be executed on this instance!
          *
-         * @param cfd New connection socket fd
+         * @param srv Pointer to the parent server instance
+         * @param connfd New connection socket fd
          * @param addr Peer IPv4 address
          * @param port Peer port (in host encoding)
          * @return 0 on success
          */
-        int reset(sockfd_t connfd, const std::string& addr, uint16_t port);
+        int reset(server::Server* srv, sockfd_t connfd, const std::string& addr, uint16_t port);
 
     public:
         SharedData sd;
 
     private:
+        server::Server* m_srv = nullptr; // pointer to the parent server instance
         sockfd_t m_connfd = -1;
         std::string m_idstr; // client identifier string
         uint16_t m_port = 0;

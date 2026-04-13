@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            29.03.2026
+date            13.04.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -10,6 +10,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 
 #include "client.h"
 #include "common/socket.h"
@@ -60,10 +61,13 @@ public:
 
     uint16_t port() const { return m_port; }
 
+    int registerClient(client::Client* client, uint16_t type);
+
 public:
     SharedData sd;
 
 private:
+    std::mutex m_mtx;
     const uint16_t m_port;
 
 private:

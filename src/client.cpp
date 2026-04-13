@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            12.04.2026
+date            13.04.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -14,6 +14,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include "common/packet.h"
 #include "common/socket.h"
 #include "project.h"
+#include "server.h"
 #include "util/macros.h"
 #include "util/time.h"
 
@@ -64,7 +65,7 @@ enum
 
 
 
-int server::client::Client::reset(sockfd_t connfd, const std::string& addr, uint16_t port)
+int server::client::Client::reset(server::Server* srv, sockfd_t connfd, const std::string& addr, uint16_t port)
 {
     const auto status = sd.status();
     if ((status != thread::Status::null) && (status != thread::Status::killed))
@@ -75,6 +76,7 @@ int server::client::Client::reset(sockfd_t connfd, const std::string& addr, uint
 
     sd.reset();
 
+    m_srv = srv;
     m_connfd = connfd;
     m_idstr = addr + ':' + std::to_string(port);
     m_port = port;
@@ -151,11 +153,12 @@ void server::client::Client::m_task()
 
             if ((m_triggerFlags & TRIGF_SEND_ACK) && !m_txBusy())
             {
-                const ssize_t res = packet::serialise::cmpAck(m_txBuffer, sizeof(m_txBuffer), (uint8_t)m_triggerFlags);
+                const uint8_t ackStatus = (uint8_t)m_triggerFlags;
+                const ssize_t res = packet::serialise::cmpAck(m_txBuffer, sizeof(m_txBuffer), ackStatus);
                 if (res > 0)
                 {
                     m_txCount = (size_t)res;
-                    m_registered = true;
+                    m_registered = (ackStatus == PHYOIP_ACK_OK);
                     m_triggerFlags &= ~(TRIGF_SEND_ACK);
                 }
                 else
@@ -216,6 +219,8 @@ void server::client::Client::m_task()
                 if (!sd.error()) { sd.setError(-(__LINE__)); }
             }
 
+            sd.clearClientType(); // has to be cleared here so that `Server::registerClient()` works properly
+
             // exit/kill thread
             state = S_kill;
 
@@ -246,10 +251,10 @@ int server::client::Client::m_taskRecv()
     uint8_t buffer[512];
 
     const ssize_t res = recv(m_connfd, (char*)buffer,
-#if 0
-                             sizeof(buffer),
-#else
+#if 0 // testing chunk parser
                              (size_t)(5 + (rand() % 10)),
+#else
+                             sizeof(buffer),
 #endif
                              0);
     if (res == 0)
@@ -434,7 +439,7 @@ int server::client::Client::m_handleCmpRegister(const uint8_t* data, size_t coun
     m_triggerFlags &= ~(TRIGF_VALUE_MASK);
 
     if (proto != PHYOIP_PROTO_UART) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PROTO); }
-    else if (0 /* TODO check on server */) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PERM); }
+    else if (0 != m_srv->registerClient(this, clitype)) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PERM); }
     else { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_OK); }
 
     return 0;

@@ -1,11 +1,12 @@
 /*
 author          Oliver Blaser
-date            12.04.2026
+date            13.04.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <thread>
 
 #include "client.h"
@@ -14,6 +15,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include "server.h"
 #include "util/time.h"
 
+#include <phyoip/protocol/cmp.h>
 #include <phyoip/protocol/ports.h>
 
 #ifdef _WIN32
@@ -235,6 +237,32 @@ server::Server::Server(uint16_t port)
     : sd(), m_port(port ? port : PHYOIP_DEFAULT_PORT)
 {}
 
+int server::Server::registerClient(client::Client* client, uint16_t type)
+{
+    std::lock_guard<std::mutex> lg(m_mtx);
+
+    bool weClientRegistered = false;
+    bool wiClientRegistered = false;
+
+    for (size_t i = 0; i < clients.size(); ++i)
+    {
+        const auto t = clients[i].sd.clientType();
+
+        if (t & PHYOIP_CTPERM_WE) { weClientRegistered = true; }
+        if (t & PHYOIP_CTPERM_WI) { wiClientRegistered = true; }
+    }
+
+    bool accept = true;
+
+    // accept multiple WE clients, but only one WI client
+    if ((type & PHYOIP_CTPERM_WI) && wiClientRegistered) { accept = false; }
+
+    if (!accept) { return -1; }
+
+    client->sd.setClientType(type);
+    return 0;
+}
+
 void server::Server::spawnClient(sockfd_t connfd, const void* sockaddr_in)
 {
     const struct sockaddr_in* const addr = (const struct sockaddr_in*)sockaddr_in;
@@ -264,7 +292,7 @@ void server::Server::spawnClient(sockfd_t connfd, const void* sockaddr_in)
     {
         char buffer[INET_ADDRSTRLEN];
 
-        err = clients[idx].reset(connfd, inet_ntop(addr->sin_family, &(addr->sin_addr.s_addr), buffer, sizeof(buffer)), ntohs(addr->sin_port));
+        err = clients[idx].reset(this, connfd, inet_ntop(addr->sin_family, &(addr->sin_addr.s_addr), buffer, sizeof(buffer)), ntohs(addr->sin_port));
         if (err)
         {
             LOG_ERR("failed to reset client #%zu, rejecting %s", idx, addrString);
