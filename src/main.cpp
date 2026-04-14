@@ -187,6 +187,7 @@ int main(int argc, char** argv)
         if (terminateSignal)
         {
             LOG_INF("received SIGTERM/SIGINT");
+            terminateSignal = 0;
             srv.sd.terminate();
         }
 

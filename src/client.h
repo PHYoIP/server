@@ -84,6 +84,12 @@ namespace client {
         static constexpr size_t bufferSize = 1024;
         static constexpr uint32_t registerTimeout = 30; // [s]
 
+        /**
+         * [s] delist/close timeout, the client has to close the connection within this period, or the connection getts
+         * closed by the server.
+         */
+        static constexpr uint32_t delistCloseTimeout = 10;
+
         static void task(Client* cnt) { cnt->m_task(); }
 
     public:

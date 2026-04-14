@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            13.04.2026
+date            14.04.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -60,6 +60,10 @@ enum
     S_idle,
 
     S_terminate,
+    S_term_send,
+    S_term_awaitClose,
+    S_term_close,
+
     S_kill,
 };
 
@@ -93,9 +97,9 @@ int server::client::Client::reset(server::Server* srv, sockfd_t connfd, const st
 void server::client::Client::m_task()
 {
     int state = S_init;
-    bool registered = false;
+    bool delisted = true;
 
-    const time_t tThreadStart = time(nullptr);
+    time_t tThreadStart = time(nullptr);
 
     sd.setStatus(thread::Status::booting);
 
@@ -217,18 +221,74 @@ void server::client::Client::m_task()
 
         case S_terminate:
 
-            sd.setStatus(thread::Status::terminating);
-
             LOG_DBG("terminating thread for client %s", m_idstr.c_str());
+
+            tThreadStart = tNow; // reuse this variable for delist/close timeout
+            sd.setStatus(thread::Status::terminating);
 
             if (m_registered)
             {
-                LOG_WRN("TODO send PHYOIP_CMP_DELIST");
-                // send PHYOIP_CMP_DELIST
-                // wait for client to close the connection (poll recv()) or timeout
+                delisted = false;
+                state = S_term_send;
+            }
+            else { state = S_term_close; }
+
+            break;
+
+        case S_term_send:
+
+            if (!m_txBusy())
+            {
+                if (!delisted)
+                {
+                    const ssize_t res = packet::serialise::cmp(m_txBuffer, sizeof(m_txBuffer), PHYOIP_CMP_DELIST, NULL, 0);
+                    if (res > 0)
+                    {
+                        m_txCount = (size_t)res;
+                        delisted = true;
+                    }
+                    else
+                    {
+                        sd.setError(-(__LINE__));
+                        state = S_term_close;
+                    }
+                }
+                else { state = S_term_awaitClose; }
             }
 
-            // close socket
+            if (0 != m_taskSend()) { state = S_term_close; }
+
+            if ((tNow - tThreadStart) >= delistCloseTimeout) { state = S_term_close; }
+
+            break;
+
+        case S_term_awaitClose: // wait for client to close the connection
+        {
+            const ssize_t res = recv(m_connfd, (char*)m_rxBuffer, sizeof(m_rxBuffer), 0);
+
+            if (res == 0) { state = S_term_close; } // client closed the connection
+            else if (res < 0)
+            {
+                if (
+#ifdef _WIN32
+                    (WSAGetLastError() != WSAEWOULDBLOCK)
+#else
+                    (errno != EAGAIN) && (errno != EWOULDBLOCK)
+#endif
+                )
+                {
+                    LOG_ERR_SOCKET("recv() failed");
+                    state = S_term_close;
+                }
+            }
+            // else nop, drop received data
+
+            if ((tNow - tThreadStart) >= delistCloseTimeout) { state = S_term_close; }
+        }
+        break;
+
+        case S_term_close:
+
             if (0 != sockclose(m_connfd))
             {
                 LOG_ERR_SOCKET("close(connfd) failed");
@@ -237,7 +297,6 @@ void server::client::Client::m_task()
 
             m_srv->delistClient(this);
 
-            // exit/kill thread
             state = S_kill;
 
             break;
