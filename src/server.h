@@ -11,6 +11,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
+#include <vector>
 
 #include "client.h"
 #include "common/socket.h"
@@ -62,12 +63,14 @@ public:
     uint16_t port() const { return m_port; }
 
     int registerClient(client::Client* client, uint16_t type);
+    void delistClient(client::Client* client);
+    void pushPacket(const std::vector<uint8_t>& packet);
 
 public:
     SharedData sd;
 
 private:
-    std::mutex m_mtx;
+    std::mutex m_mtxClient;
     const uint16_t m_port;
 
 private:

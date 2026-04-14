@@ -9,7 +9,9 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 
 #include <cstddef>
 #include <cstdint>
+#include <queue>
 #include <string>
+#include <vector>
 
 #include "common/socket.h"
 #include "common/thread.h"
@@ -37,7 +39,7 @@ namespace client {
         int error() const { lock_guard lg(m_mtx); return m_err; }
         uint16_t clientType() const { lock_guard lg(m_mtx); return m_clitype; }
         void setClientType(uint16_t ct) { lock_guard lg(m_mtx); m_clitype = ct; } 
-        void push() { lock_guard lg(m_mtx); /* m_queue.push */ }
+        void push(const std::vector<uint8_t>& packet) { lock_guard lg(m_mtx); m_queue.push(packet); }
         // clang-format on
 
         void reset()
@@ -45,21 +47,30 @@ namespace client {
             lock_guard lg(m_mtx);
             m_err = 0;
             m_clitype = 0;
-            // m_queue.clear();
+            while (!m_queue.empty()) { m_queue.pop(); }
             thread::ThreadCtl::reset();
         }
 
     private:
         int m_err;
         uint16_t m_clitype;
+        std::queue<std::vector<uint8_t>> m_queue;
 
     public:
         // thread internal
 
         // clang-format off
         void setError(int err) { lock_guard lg(m_mtx); m_err = err; } ///< thread internal
-        void clearClientType() { lock_guard lg(m_mtx); m_clitype = 0; } ///< thread internal
+        bool packetQueued() const { lock_guard lg(m_mtx); return !m_queue.empty(); } ///< thread internal
         // clang-format on
+
+        std::vector<uint8_t> pop()
+        {
+            lock_guard lg(m_mtx);
+            const auto tmp = m_queue.front();
+            m_queue.pop();
+            return tmp;
+        }
     };
 
 

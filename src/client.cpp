@@ -168,7 +168,7 @@ void server::client::Client::m_task()
                 }
             }
 
-            if (m_triggerFlags & TRIGF_SEND_PEER_INFO)
+            if ((m_triggerFlags & TRIGF_SEND_PEER_INFO) && !m_txBusy())
             {
                 LOG_ERR("TODO implement send peer info");
                 // packet::serialise::cmpPeerInfo(duf, bufsz, prj::appName, "PHYoIP server sample implementation", PRJ_VERSION_MAJ, PRJ_VERSION_MIN,
@@ -176,6 +176,22 @@ void server::client::Client::m_task()
                 // static_assert((PRJ_VERSION_MAJ <= UINT8_MAX) && (PRJ_VERSION_MIN <= UINT8_MAX));
 
                 m_triggerFlags &= ~(TRIGF_SEND_PEER_INFO);
+            }
+
+            if (sd.packetQueued() && !m_txBusy())
+            {
+                const auto packet = sd.pop();
+                const ssize_t res = packet::serialise::phyoip(m_txBuffer, sizeof(m_txBuffer), PHYOIP_PROTO_UART, packet.data(), packet.size());
+                if (res > 0)
+                {
+                    m_txCount = (size_t)res;
+                    // LOG_DBG_HD(m_txBuffer, m_txCount, "send packet:");
+                }
+                else
+                {
+                    sd.setError(-(__LINE__));
+                    state = S_terminate;
+                }
             }
 
             if (m_triggerFlags & TRIGF_PERFORM_DELIST)
@@ -219,7 +235,7 @@ void server::client::Client::m_task()
                 if (!sd.error()) { sd.setError(-(__LINE__)); }
             }
 
-            sd.clearClientType(); // has to be cleared here so that `Server::registerClient()` works properly
+            m_srv->delistClient(this);
 
             // exit/kill thread
             state = S_kill;
@@ -438,16 +454,44 @@ int server::client::Client::m_handleCmpRegister(const uint8_t* data, size_t coun
 
     m_triggerFlags &= ~(TRIGF_VALUE_MASK);
 
+    const bool positiveFeedbackLoop =
+        (((clitype & PHYOIP_CTPERM_RE) && (clitype & PHYOIP_CTPERM_WE)) || // depending on the implementations this could flood and overflow all buffers
+         ((clitype & PHYOIP_CTPERM_RI) && (clitype & PHYOIP_CTPERM_WI)));  // it has no practical meaning anyway, so just block it
+
     if (proto != PHYOIP_PROTO_UART) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PROTO); }
-    else if (0 != m_srv->registerClient(this, clitype)) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PERM); }
-    else { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_OK); }
+    else if (positiveFeedbackLoop) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_ERROR); }
+    else if ((clitype & PHYOIP_CTPERM_MASK) == PHYOIP_CTPERM_NONE) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_ERROR); }
+    else
+    {
+        const int err = m_srv->registerClient(this, clitype);
+        if (err) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PERM); }
+        else { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_OK); }
+    }
 
     return 0;
 }
 
 int server::client::Client::m_handleUart(const uint8_t* data, size_t count)
 {
-    LOG_DBG_HD(data, count, "UART packet:");
+    // LOG_DBG_HD(data, count, "UART packet:");
+
+    if (count < sizeof(struct phyoip_uarthdr))
+    {
+        LOG_ERR("received invalid UART packet (%zu bytes) from client %s", count, m_idstr.c_str());
+        return -(__LINE__);
+    }
+
+    const struct phyoip_uarthdr* const hdr = (const struct phyoip_uarthdr*)(data);
+    const size_t hsize = hdr->hsize;
+    const size_t dsize = ntohs(hdr->dsize);
+
+    if (count < (hsize + dsize))
+    {
+        LOG_ERR("received invalid UART packet from client %s: size (%zu) < hsize (%zu) + dsize (%zu)", m_idstr.c_str(), count, hsize, dsize);
+        return -(__LINE__);
+    }
+
+    m_srv->pushPacket(std::vector<uint8_t>(data, data + count));
 
     return 0;
 }

@@ -17,6 +17,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 
 #include <phyoip/protocol/cmp.h>
 #include <phyoip/protocol/ports.h>
+#include <phyoip/protocol/uart.h>
 
 #ifdef _WIN32
 
@@ -239,7 +240,7 @@ server::Server::Server(uint16_t port)
 
 int server::Server::registerClient(client::Client* client, uint16_t type)
 {
-    std::lock_guard<std::mutex> lg(m_mtx);
+    std::lock_guard<std::mutex> lg(m_mtxClient);
 
     bool weClientRegistered = false;
     bool wiClientRegistered = false;
@@ -261,6 +262,27 @@ int server::Server::registerClient(client::Client* client, uint16_t type)
 
     client->sd.setClientType(type);
     return 0;
+}
+
+void server::Server::delistClient(client::Client* client)
+{
+    std::lock_guard<std::mutex> lg(m_mtxClient);
+    client->sd.setClientType(PHYOIP_CTPERM_NONE);
+}
+
+void server::Server::pushPacket(const std::vector<uint8_t>& packet)
+{
+    std::lock_guard<std::mutex> lg(m_mtxClient);
+
+    const struct phyoip_uarthdr* const hdr = (const struct phyoip_uarthdr*)(packet.data());
+
+    for (size_t i = 0; i < clients.size(); ++i)
+    {
+        auto& c = clients[i];
+        const auto perm = c.sd.clientType();
+
+        if ((hdr->ingress && (perm & PHYOIP_CTPERM_RI)) || (!hdr->ingress && (perm & PHYOIP_CTPERM_RE))) { c.sd.push(packet); }
+    }
 }
 
 void server::Server::spawnClient(sockfd_t connfd, const void* sockaddr_in)
