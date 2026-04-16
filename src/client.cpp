@@ -174,10 +174,16 @@ void server::client::Client::m_task()
 
             if ((m_triggerFlags & TRIGF_SEND_PEER_INFO) && !m_txBusy())
             {
-                LOG_ERR("TODO implement send peer info");
-                // packet::serialise::cmpPeerInfo(duf, bufsz, prj::appName, "PHYoIP server sample implementation", PRJ_VERSION_MAJ, PRJ_VERSION_MIN,
-                // PRJ_VERSION_STR);
-                // static_assert((PRJ_VERSION_MAJ <= UINT8_MAX) && (PRJ_VERSION_MIN <= UINT8_MAX));
+                const ssize_t res = packet::serialise::cmpPeerInfo(m_txBuffer, sizeof(m_txBuffer), prj::appName, "PHYoIP server sample implementation",
+                                                                   PRJ_VERSION_MAJ, PRJ_VERSION_MIN, PRJ_VERSION_STR);
+                static_assert((PRJ_VERSION_MAJ <= UINT8_MAX) && (PRJ_VERSION_MIN <= UINT8_MAX));
+
+                if (res > 0) { m_txCount = (size_t)res; }
+                else
+                {
+                    LOG_ERR("packet::serialise::cmpPeerInfo() error: %zi", res);
+                    // is not critical, so let it slide
+                }
 
                 m_triggerFlags &= ~(TRIGF_SEND_PEER_INFO);
             }
@@ -433,6 +439,7 @@ int server::client::Client::m_handleReceivedChunk(const uint8_t* data, size_t co
             if (!packet::isCompatible(hdr))
             {
                 LOG_ERR("received incompatible packet (v%i.%i) from client %s", (int)(hdr->vermaj), (int)(hdr->vermin), m_idstr.c_str());
+                LOG_DBG_HD(m_rxBuffer, m_rxIdx, "rx buffer:");
                 return -(__LINE__);
             }
         }
