@@ -410,7 +410,8 @@ int server::client::Client::m_taskSend()
             m_txCount -= n;
         }
     }
-    else { m_txIdx = 0; }
+
+    if (!m_txCount) { m_txIdx = 0; }
 
     return 0;
 }
