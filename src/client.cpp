@@ -229,7 +229,6 @@ void server::client::Client::m_task()
 
             LOG_DBG("terminating thread for client %s", m_idstr.c_str());
 
-            tThreadStart = tNow; // reuse this variable for delist/close timeout
             sd.setStatus(thread::Status::terminating);
 
             if (m_registered)
@@ -245,7 +244,7 @@ void server::client::Client::m_task()
 
             if (!m_txBusy())
             {
-                if (!delisted)
+                if (!delisted) // the last regular packet has now been sent
                 {
                     const ssize_t res = packet::serialise::cmp(m_txBuffer, sizeof(m_txBuffer), PHYOIP_CMP_DELIST, NULL, 0);
                     if (res > 0)
@@ -259,12 +258,14 @@ void server::client::Client::m_task()
                         state = S_term_close;
                     }
                 }
-                else { state = S_term_awaitClose; }
+                else // the delist packet has now been sent
+                {
+                    tThreadStart = tNow; // reuse this variable for delist/close timeout
+                    state = S_term_awaitClose;
+                }
             }
 
             if (0 != m_taskSend()) { state = S_term_close; }
-
-            if ((tNow - tThreadStart) >= delistCloseTimeout) { state = S_term_close; }
 
             break;
 
@@ -416,7 +417,7 @@ int server::client::Client::m_taskSend()
 
 int server::client::Client::m_handleReceivedChunk(const uint8_t* data, size_t count)
 {
-    // LOG_DBG_HD(buffer, (size_t)res, "received chunk:");
+    // LOG_DBG_HD(data, count, "received chunk:");
 
     const uint8_t* p = data;
 
@@ -432,10 +433,9 @@ int server::client::Client::m_handleReceivedChunk(const uint8_t* data, size_t co
 
 
 
-        const struct phyoiphdr* const hdr = (const struct phyoiphdr*)(m_rxBuffer);
-
         if (m_rxIdx == sizeof(struct phyoiphdr))
         {
+            const struct phyoiphdr* const hdr = (const struct phyoiphdr*)(m_rxBuffer);
             if (!packet::isCompatible(hdr))
             {
                 LOG_ERR("received incompatible packet (v%i.%i) from client %s", (int)(hdr->vermaj), (int)(hdr->vermin), m_idstr.c_str());
