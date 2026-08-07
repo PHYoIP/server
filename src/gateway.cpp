@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            03.02.2026
+date            19.04.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -9,8 +9,10 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include <cstring>
 #include <string>
 
+#include "client.h"
 #include "common/string.h"
 #include "gateway.h"
+#include "server.h"
 #include "util/macros.h"
 
 

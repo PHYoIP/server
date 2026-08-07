@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            03.02.2026
+date            19.04.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -10,6 +10,8 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include <cstddef>
 #include <cstdint>
 #include <string>
+
+#include "client.h"
 
 
 
@@ -84,6 +86,52 @@ private:
     Parity m_parity;
     uint8_t m_stopBits;
     ProtocolConfig m_protoConfig;
+};
+
+} // namespace gateway
+
+namespace server {
+class Server;
+}
+
+namespace gateway {
+
+class Client
+{
+public:
+    static constexpr size_t bufferSize = 1024;
+    static constexpr uint32_t registerTimeout = 30; // [s]
+
+    /**
+     * [s] delist/close timeout, the client has to close the connection within this period, or the connection getts
+     * closed by the server.
+     */
+    static constexpr uint32_t delistCloseTimeout = 10;
+
+    static void task(Client* cnt) { cnt->m_task(); }
+
+public:
+#ifdef _MSC_VER
+// #pragma warning(suppress :26495)
+#endif
+    Client()
+        : m_srv(nullptr), m_config()
+    {}
+
+    Client(server::Server* srv, const Config& config)
+        : m_srv(srv), m_config(config)
+    {}
+
+    virtual ~Client() {}
+
+public:
+    server::client::SharedData sd;
+
+private:
+    server::Server* m_srv; // pointer to the parent server instance
+    gateway::Config m_config;
+
+    void m_task();
 };
 
 } // namespace gateway

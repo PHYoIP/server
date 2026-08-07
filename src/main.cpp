@@ -110,7 +110,7 @@ int main(int argc, char** argv)
 
         "115200",
 
-        "7E2",
+        // "7E2",
 
         //"--no-colour",
 
@@ -181,6 +181,10 @@ int main(int argc, char** argv)
 
     server::Server srv((uint16_t)port);
     std::thread thServer(server::Server::task, &srv);
+
+    gateway::Client gwc;
+    if (gwEnabled) { gwc = gateway::Client(&srv, gwConfig); }
+    std::thread thGateway(gateway::Client::task, &gwc);
 
     while (srv.sd.status() != thread::Status::killed)
     {
