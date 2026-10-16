@@ -109,7 +109,7 @@ void server::Server::task(Server* srv)
             int err;
 
             const sockopt_optval_t optval[] = { 1 };
-            err = setsockopt(srv->sockfd, SOL_SOCKET, SO_REUSEADDR, optval, sizeof(int));
+            err = setsockopt(srv->sockfd, SOL_SOCKET, SO_REUSEADDR, optval, sizeof(optval));
             if (err) { LOG_ERR_SOCKET("setsockopt(SO_REUSEADDR) failed"); }
 
             struct sockaddr_in srvaddr;
