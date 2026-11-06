@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # author        Oliver Blaser
-# date          16.10.2026
+# date          06.11.2026
 # copyright     GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 
 # Usage:
@@ -16,6 +16,8 @@ echoTitle="build $prjBinName"
 cmakeDirName=cmake
 
 
+
+runErrCode=0
 
 errCnt=0
 function procErrorCode()
@@ -152,7 +154,8 @@ function procArg()
         cd ./$cmakeDirName
         procErrorCode $?
         ./$exeName
-        procErrorCode $?
+        runErrCode=$?
+        procErrorCode $runErrCode
         cd ..
         procErrorCode $?
         
@@ -161,7 +164,8 @@ function procArg()
         cd ./$cmakeDirName
         procErrorCode $?
         sudo ./$exeName
-        procErrorCode $?
+        runErrCode=$?
+        procErrorCode $runErrCode
         cd ..
         procErrorCode $?
         
@@ -195,8 +199,14 @@ fi
 exitCode=0
 if [ $errCnt -ne 0 ]
 then
-    exitCode=1
-    ptintTitle "$echoTitle - failed" 1
+    if [ $runErrCode -ne 0 ]
+    then
+        exitCode=$runErrCode
+        ptintTitle "$echoTitle - failed ($runErrCode)" 1
+    else
+        exitCode=1
+        ptintTitle "$echoTitle - failed" 1
+    fi
 else
     ptintTitle "$echoTitle - OK" 2
 fi
