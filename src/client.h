@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            13.04.2026
+date            06.11.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -75,10 +75,30 @@ namespace client {
 
 
 
+    class Common
+    {
+    public:
+        Common() = delete;
+
+        explicit Common(server::Server* srv)
+            : m_srv(srv)
+        {}
+
+        virtual ~Common() {}
+
+    public:
+        server::client::SharedData sd;
+
+    protected:
+        server::Server* m_srv; ///< pointer to the parent server instance
+    };
+
+
+
     /**
      * @brief Client connection/instance inside the server.
      */
-    class Client
+    class Client : public Common
     {
     public:
         static constexpr size_t bufferSize = 1024;
@@ -96,7 +116,13 @@ namespace client {
 #ifdef _MSC_VER
 #pragma warning(suppress :26495)
 #endif
-        Client() {} ///< `Client::reset()` needs to be called on an instance before it can be run by  `Client::task()`.
+
+        /**
+         * `Client::reset()` needs to be called on an instance before it can be run by  `Client::task()`.
+         */
+        Client()
+            : Common(nullptr)
+        {}
 
         virtual ~Client() {}
 
@@ -113,11 +139,7 @@ namespace client {
          */
         int reset(server::Server* srv, sockfd_t connfd, const std::string& addr, uint16_t port);
 
-    public:
-        SharedData sd;
-
     private:
-        server::Server* m_srv = nullptr; // pointer to the parent server instance
         sockfd_t m_connfd = -1;
         std::string m_idstr; // client identifier string
         uint16_t m_port = 0;

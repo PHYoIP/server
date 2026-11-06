@@ -192,9 +192,13 @@ int main(int argc, char** argv)
     server::Server srv((uint16_t)port);
     std::thread thServer(server::Server::task, &srv);
 
-    gateway::Client gwc;
-    if (gwEnabled) { gwc = gateway::Client(&srv, gwConfig); }
-    std::thread thGateway(gateway::Client::task, &gwc);
+    gateway::Client gwc(&srv, gwConfig);
+    if (gwEnabled)
+    {
+        srv.registerClient(&gwc);
+        std::thread thGateway(gateway::Client::task, &gwc);
+        thGateway.detach();
+    }
 
     while (srv.sd.status() != thread::Status::killed)
     {

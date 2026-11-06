@@ -33,6 +33,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 
 #else // *nix
 
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -502,7 +503,7 @@ int server::client::Client::m_handleCmp(const uint8_t* data, size_t count)
     }
     else if (type == PHYOIP_CMP_DELIST) { m_triggerFlags |= TRIGF_PERFORM_DELIST; }
     else if (type == PHYOIP_CMP_XENV) { (void)0; /* dropping extension envelope package */ }
-    else { LOG_INF("dropping CMP packet with unknown type 0x%02x from client %s", (int)type, m_idstr.c_str()); }
+    else { LOG_INF("dropping CMP packet of unknown type 0x%02x from client %s", (int)type, m_idstr.c_str()); }
 
     return 0;
 }
@@ -521,9 +522,10 @@ int server::client::Client::m_handleCmpRegister(const uint8_t* data, size_t coun
 
     m_triggerFlags &= ~(TRIGF_VALUE_MASK);
 
-    const bool positiveFeedbackLoop =
-        (((clitype & PHYOIP_CTPERM_RE) && (clitype & PHYOIP_CTPERM_WE)) || // depending on the implementations this could flood and overflow all buffers
-         ((clitype & PHYOIP_CTPERM_RI) && (clitype & PHYOIP_CTPERM_WI)));  // it has no practical meaning anyway, so just block it
+    // depending on the implementations this could flood and overflow all buffers, it has no practical use anyway,
+    // so just block it
+    const bool positiveFeedbackLoop = (((clitype & PHYOIP_CTPERM_RE) && (clitype & PHYOIP_CTPERM_WE)) || //
+                                       ((clitype & PHYOIP_CTPERM_RI) && (clitype & PHYOIP_CTPERM_WI)));  //
 
     if (proto != PHYOIP_PROTO_UART) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PROTO); }
     else if (positiveFeedbackLoop) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_ERROR); }

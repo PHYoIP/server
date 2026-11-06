@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            13.04.2026
+date            06.11.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -16,6 +16,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include "client.h"
 #include "common/socket.h"
 #include "common/thread.h"
+#include "gateway.h"
 
 
 
@@ -63,6 +64,7 @@ public:
     uint16_t port() const { return m_port; }
 
     int registerClient(client::Client* client, uint16_t type);
+    void registerClient(gateway::Client* client);
     void delistClient(client::Client* client);
     void pushPacket(const std::vector<uint8_t>& packet);
 
@@ -72,6 +74,7 @@ public:
 private:
     std::mutex m_mtxClient;
     const uint16_t m_port;
+    gateway::Client m_gwc;
 
 private:
     /// \name Task Internal

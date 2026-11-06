@@ -30,10 +30,10 @@ include_directories(
 set(SOURCES
     ../../src/main.cpp
     ../../common/src/ansi-esc.cpp
+    ../../common/src/packet.cpp
     ../../common/src/socket.cpp
     ../../common/src/string.cpp
-    ../../common/src/windows.cpp
-    ../../common/src/winsock.cpp
+    ../../common/util/util/time.c
     ../../src/client.cpp
     ../../src/gateway.cpp
     ../../src/server.cpp

@@ -31,6 +31,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #else // *nix
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -256,6 +257,7 @@ int server::Server::registerClient(client::Client* client, uint16_t type)
     bool accept = true;
 
     // accept multiple WE clients, but only one WI client
+    (void)weClientRegistered;
     if ((type & PHYOIP_CTPERM_WI) && wiClientRegistered) { accept = false; }
 
     if (!accept) { return -1; }
