@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            13.04.2026
+date            06.11.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -12,6 +12,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include "client.h"
 #include "common/ansi-esc.h"
 #include "common/socket.h"
+#include "common/thread.h"
 #include "server.h"
 #include "util/time.h"
 
@@ -72,7 +73,19 @@ void server::Server::task(Server* srv)
         switch (srv->state)
         {
         case S_init:
-            srv->state = S_open;
+            if (srv->m_gwc)
+            {
+                // wait for gateway client to open the serial port
+                if ((srv->m_gwc->sd.status() != thread::Status::null) && (srv->m_gwc->sd.status() != thread::Status::booting)) { srv->state = S_open; }
+
+                // last, highest precedence
+                if (srv->sd.sigterm())
+                {
+                    // sockfd is not set, so go to S_kill, there are no clients to be terminated either
+                    srv->state = S_kill;
+                }
+            }
+            else { srv->state = S_open; }
             break;
 
         case S_open:
@@ -232,11 +245,11 @@ void server::Server::task(Server* srv)
 }
 
 server::Server::Server()
-    : sd(), m_port(PHYOIP_DEFAULT_PORT)
+    : sd(), m_port(PHYOIP_DEFAULT_PORT), m_gwc(nullptr)
 {}
 
 server::Server::Server(uint16_t port)
-    : sd(), m_port(port ? port : PHYOIP_DEFAULT_PORT)
+    : sd(), m_port(port ? port : PHYOIP_DEFAULT_PORT), m_gwc(nullptr)
 {}
 
 int server::Server::registerClient(client::Client* client, uint16_t type)
@@ -254,16 +267,39 @@ int server::Server::registerClient(client::Client* client, uint16_t type)
         if (t & PHYOIP_CTPERM_WI) { wiClientRegistered = true; }
     }
 
+    if (m_gwc) { wiClientRegistered = true; }
+
+
+
     bool accept = true;
 
     // accept multiple WE clients, but only one WI client
     (void)weClientRegistered;
     if ((type & PHYOIP_CTPERM_WI) && wiClientRegistered) { accept = false; }
 
+
+
     if (!accept) { return -1; }
 
     client->sd.setClientType(type);
     return 0;
+}
+
+int server::Server::registerClient(gateway::Client* client)
+{
+    if (m_gwc)
+    {
+        LOG_ERR("can't register multiple gateway clients");
+        return -1;
+    }
+
+    m_gwc = client;
+    m_gwc->sd.setClientType(PHYOIP_CT_GW);
+
+    return 0;
+
+    // TODO find all `server::Server::clients` and also handle `server::Server::m_gwc` there
+    (void)this->clients;
 }
 
 void server::Server::delistClient(client::Client* client)

@@ -64,7 +64,7 @@ public:
     uint16_t port() const { return m_port; }
 
     int registerClient(client::Client* client, uint16_t type);
-    void registerClient(gateway::Client* client);
+    int registerClient(gateway::Client* client);
     void delistClient(client::Client* client);
     void pushPacket(const std::vector<uint8_t>& packet);
 
@@ -74,7 +74,7 @@ public:
 private:
     std::mutex m_mtxClient;
     const uint16_t m_port;
-    gateway::Client m_gwc;
+    gateway::Client* m_gwc;
 
 private:
     /// \name Task Internal

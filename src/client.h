@@ -29,10 +29,7 @@ namespace client {
     class SharedData : public thread::ThreadCtl
     {
     public:
-        SharedData()
-            : thread::ThreadCtl(), m_err(0), m_clitype(0)
-        {}
-
+        SharedData();
         virtual ~SharedData() {}
 
         // clang-format off

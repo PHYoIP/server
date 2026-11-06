@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            19.04.2026
+date            06.11.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -14,11 +14,23 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include "gateway.h"
 #include "server.h"
 #include "util/macros.h"
+#include "util/time.h"
 
 
 #define LOG_MODULE_LEVEL LOG_LEVEL_DBG
 #define LOG_MODULE_NAME  GW
 #include "common/log.h"
+
+
+
+enum
+{
+    S_init = 0,
+    S_open,
+    S_idle,
+    S_terminate,
+    S_kill,
+};
 
 
 
@@ -189,4 +201,70 @@ int gateway::Config::parseConfig(const char* arg)
     else { return -(__LINE__); }
 
     return 0;
+}
+
+
+
+void gateway::Client::m_task()
+{
+    int state = S_init;
+
+    sd.setStatus(thread::Status::booting);
+
+    while (!sd.sigkill())
+    {
+        const time_t tNow = time(nullptr);
+
+        switch (state)
+        {
+        case S_init:
+            LOG_DBG("started thread");
+            state = S_open;
+            break;
+
+        case S_open:
+        {
+            int err;
+
+            err = -(__LINE__); // TODO serial port open
+
+            if (err)
+            {
+                LOG_ERR("failed to open port %s", m_config.port().c_str());
+
+                // gateway servers that failed to open the serial port should not be running
+                m_srv->sd.terminate();
+
+                sd.setError(-(__LINE__));
+                state = S_terminate;
+            }
+            else
+            {
+                sd.setStatus(thread::Status::running);
+                state = S_idle;
+            }
+        }
+        break;
+
+        case S_terminate:
+            LOG_DBG("terminating thread");
+            sd.setStatus(thread::Status::terminating);
+            state = S_kill;
+            break;
+
+        case S_kill:
+            sd.kill();
+            break;
+
+        default:
+            LOG_ERR("invalid state: %i", state);
+            UTIL_sleep_ms(5000);
+            break;
+        }
+
+        UTIL_sleep_us(100); // TODO dimensioning/coordination with gateway::ProtocolConfig::TIMEOUT
+    }
+
+    LOG_DBG("exited thread (err: %i)", sd.error());
+    sd.setStatus(thread::Status::killed);
 }

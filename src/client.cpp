@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            14.04.2026
+date            06.11.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -13,6 +13,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include "common/ansi-esc.h"
 #include "common/packet.h"
 #include "common/socket.h"
+#include "common/thread.h"
 #include "project.h"
 #include "server.h"
 #include "util/macros.h"
@@ -67,6 +68,12 @@ enum
 
     S_kill,
 };
+
+
+
+server::client::SharedData::SharedData()
+    : thread::ThreadCtl(), m_err(0), m_clitype(PHYOIP_CTPERM_NONE)
+{}
 
 
 

@@ -45,9 +45,9 @@ enum ERRORCODE
 
     EC__begin_ = 79,
 
-    EC_WINSOCK = EC__begin_,
-    EC_SERVER,
+    EC_SERVER = EC__begin_,
     EC_GATEWAY,
+    EC_WINSOCK,
 
     EC__end_,
     EC__max_ = 113,
@@ -190,7 +190,6 @@ int main(int argc, char** argv)
 #endif
 
     server::Server srv((uint16_t)port);
-    std::thread thServer(server::Server::task, &srv);
 
     gateway::Client gwc(&srv, gwConfig);
     if (gwEnabled)
@@ -199,6 +198,8 @@ int main(int argc, char** argv)
         std::thread thGateway(gateway::Client::task, &gwc);
         thGateway.detach();
     }
+
+    std::thread thServer(server::Server::task, &srv);
 
     while (srv.sd.status() != thread::Status::killed)
     {
@@ -222,6 +223,7 @@ int main(int argc, char** argv)
 
 
     if (srv.sd.error()) { return EC_SERVER; }
+    if (gwc.sd.error()) { return EC_GATEWAY; }
 
     return EC_OK;
 }

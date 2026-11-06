@@ -79,6 +79,13 @@ public:
 
     int parseConfig(const char* arg);
 
+    const std::string& port() const { return m_port; }
+    uint32_t baud() const { return m_baud; }
+    uint8_t dataBits() const { return m_dataBits; }
+    const Parity& parity() const { return m_parity; }
+    uint8_t stopBits() const { return m_stopBits; }
+    const ProtocolConfig& protoConfig() const { return m_protoConfig; }
+
 private:
     std::string m_port;
     uint32_t m_baud;
