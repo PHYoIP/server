@@ -1,12 +1,13 @@
 /*
 author          Oliver Blaser
-date            07.02.2026
+date            06.11.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -69,9 +70,7 @@ static const std::string usageString = std::string(prj::binName) + " [PORT [SPCF
 
 
 
-static int terminateSignal; // Choosing `int` over `bool` to omit compiler bit check shenanigans in interrupt (aldough
-                            // `SIGINT` is handled in a new thread, not an interrupt, in Windows). The lack of thread
-                            // syncronisation is ok for this one.
+static volatile sig_atomic_t terminateSignal;
 
 
 
@@ -92,8 +91,8 @@ int main(int argc, char** argv)
 {
     int err;
 
-#if PRJ_DEBUG && 1
-    char* dbgArgs[] = {
+#if PRJ_DEBUG && 01
+    const char* dbgArgs[] = {
         argv[0],
 
         //"--help",
@@ -117,8 +116,8 @@ int main(int argc, char** argv)
         NULL,
     };
     argc = (sizeof(dbgArgs) / sizeof(dbgArgs[0])) - 1; // don't count the NULL terminator element
-    argv = dbgArgs;
-#endif
+    argv = (char**)dbgArgs;
+#endif // PRJ_DEBUG
 
     if (argstr::contains(argc, argv, argstr::noColour)) { ansi::initEscapeCodes(false); }
     else
@@ -176,7 +175,18 @@ int main(int argc, char** argv)
 #ifdef _WIN32
     signal(SIGINT, handleSigintWin);
 #else
-#warning "TODO add signal handling" // sigaction(2)
+    {
+        struct sigaction sa;
+
+        memset(&sa, 0, sizeof(sa));
+        sa.sa_handler = signalHandlerXnix;
+
+        err = sigaction(SIGINT, &sa, NULL);
+        if (err) { LOG_ERR_ERRNO("failed to set handler for SIGINT", errno); }
+
+        err = sigaction(SIGTERM, &sa, NULL);
+        if (err) { LOG_ERR_ERRNO("failed to set handler for SIGTERM", errno); }
+    }
 #endif
 
     server::Server srv((uint16_t)port);
@@ -303,14 +313,14 @@ void printUsageAndTryHelp()
 
 void printVersion()
 {
-    const int maj = PRJ_VERSION_MAJ;
-    const int min = PRJ_VERSION_MIN;
-    const int pat = PRJ_VERSION_PAT;
+    const int ATTR_UNUSED maj = PRJ_VERSION_MAJ;
+    const int ATTR_UNUSED min = PRJ_VERSION_MIN;
+    const int ATTR_UNUSED pat = PRJ_VERSION_PAT;
     const char* const pr = PRJ_VERSION_PRSTR;
     const char* const build = PRJ_VERSION_BUILD;
 
     const int hasPr = (pr[0] != 0);
-    const int hasBuild = (build[0] != 0);
+    const int ATTR_UNUSED hasBuild = (build[0] != 0);
 
     cout << prj::appName << "   ";
     if (hasPr) { cout << ansi::esc[SGR_FG_BMAGENTA]; }
@@ -329,17 +339,12 @@ void printVersion()
     cout << "This is free software. There is NO WARRANTY." << endl;
 }
 
-static inline void handleSigterm()
+#ifdef _WIN32
+void handleSigintWin(int sig)
 {
     LOG_DBG("%s", __func__);
 
     terminateSignal = 1;
-}
-
-#ifdef _WIN32
-void handleSigintWin(int sig)
-{
-    handleSigterm();
 
     // don't reassign, so the second CTRL+C is handled in the system default manner
     // signal(SIGINT, handleSigintWin);
@@ -347,7 +352,9 @@ void handleSigintWin(int sig)
 #else
 void signalHandlerXnix(int sig)
 {
-    if ((sig == SIGINT) || (sig == SIGTERM)) { handleSigterm(); }
+    // no logging, printf, malloc, mutexes, ...
+
+    if ((sig == SIGINT) || (sig == SIGTERM)) { terminateSignal = 1; }
 }
 #endif
 
@@ -388,7 +395,7 @@ const char* PRJ___versionStr___()
         else if (hasPr && hasBuild) { printRes = snprintf(tmp, sizeof(tmp), "%i.%i.%i-%s+%s", maj, min, pat, pr, build); }
         else { printRes = snprintf(tmp, sizeof(tmp), "%i.%i.%i", maj, min, pat); }
 
-        if (!((printRes > 0) && (printRes < sizeof(tmp))))
+        if (!((printRes > 0) && (printRes < (int)sizeof(tmp))))
         {
 #ifdef _MSC_VER
 #pragma warning(suppress :4996)
