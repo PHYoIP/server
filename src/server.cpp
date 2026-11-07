@@ -213,6 +213,14 @@ void server::Server::task(Server* srv)
                 if ((status != thread::Status::null) && (status != thread::Status::killed)) { allClientsClosed = false; }
             }
 
+            if (srv->m_gwc)
+            {
+                srv->m_gwc->sd.terminate();
+
+                const auto status = srv->m_gwc->sd.status();
+                if ((status != thread::Status::null) && (status != thread::Status::killed)) { allClientsClosed = false; }
+            }
+
             if (allClientsClosed)
             {
                 // close socket
@@ -297,9 +305,6 @@ int server::Server::registerClient(gateway::Client* client)
     m_gwc->sd.setClientType(PHYOIP_CT_GW);
 
     return 0;
-
-    // TODO find all `server::Server::clients` and also handle `server::Server::m_gwc` there
-    (void)this->clients;
 }
 
 void server::Server::delistClient(client::Client* client)
@@ -314,12 +319,14 @@ void server::Server::pushPacket(const std::vector<uint8_t>& packet)
 
     const struct phyoip_uarthdr* const hdr = (const struct phyoip_uarthdr*)(packet.data());
 
+    if (m_gwc && !(hdr->ingress)) { m_gwc->sd.push(packet); }
+
     for (size_t i = 0; i < clients.size(); ++i)
     {
         auto& c = clients[i];
         const auto perm = c.sd.clientType();
 
-        if ((hdr->ingress && (perm & PHYOIP_CTPERM_RI)) || (!hdr->ingress && (perm & PHYOIP_CTPERM_RE))) { c.sd.push(packet); }
+        if ((hdr->ingress && (perm & PHYOIP_CTPERM_RI)) || (!(hdr->ingress) && (perm & PHYOIP_CTPERM_RE))) { c.sd.push(packet); }
     }
 }
 
