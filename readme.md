@@ -34,7 +34,7 @@ ASCII protocols use one or two stop symbols, and optionally one start symbol: `A
 |      `CRLF`      | `CR` and `LF`, 0D0A<sub>h</sub>                 |
 |      `NULL`      | Null terminator, 00<sub>h</sub>, 0<sub>d</sub>  |
 
-#### `B` Binary Protocol
+#### `B` Binary Protocol _(not yet implemented)_
 `B,TO[,LEN]`
 - `TO` timout as microseconds
 - `LEN` byte offset of the length specifier of the message

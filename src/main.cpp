@@ -101,8 +101,9 @@ int main(int argc, char** argv)
         "1234",
         //"0",
 
-        "A,LF",
+        //"A,LF",
         //"A,LF,24",
+        "A,CRLF,24",
         //"A,0103",
 
         //"COM7",
@@ -161,7 +162,7 @@ int main(int argc, char** argv)
     gateway::Config gwConfig;
     if (argc > 2)
     {
-        const int err = parseGatewayArgs(argc, argv, gwConfig);
+        err = parseGatewayArgs(argc, argv, gwConfig);
         if (err) { return EC_ERROR; }
         else { gwEnabled = true; }
     }

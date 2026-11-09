@@ -204,6 +204,15 @@ void server::Server::task(Server* srv)
                 LOG_INF("terminating");
                 srv->state = S_terminate;
             }
+            else if (srv->m_gwc)
+            {
+                const auto status = srv->m_gwc->sd.status();
+                if ((status == thread::Status::terminating) || (status == thread::Status::killed))
+                {
+                    LOG_ERR("gateway client failure");
+                    srv->sd.terminate();
+                }
+            }
         }
         break;
 

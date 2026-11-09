@@ -54,6 +54,7 @@ target_compile_options(${BINNAME} PRIVATE
     -Werror=array-bounds
     # -Werror=unused-parameter
     -Wdouble-promotion
+    -Wshadow
 
     $<$<COMPILE_LANGUAGE:C>:
         -Werror=discarded-qualifiers

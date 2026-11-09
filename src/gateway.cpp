@@ -13,6 +13,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 
 #include "client.h"
 #include "common/serial.h"
+#include "common/socket.h"
 #include "common/string.h"
 #include "gateway.h"
 #include "server.h"
@@ -102,6 +103,22 @@ int gateway::ProtocolConfig::parse(const char* arg)
     }
 
     return 0;
+}
+
+bool gateway::ProtocolConfig::hasStartCond() const
+{
+    switch (m_mode)
+    {
+    case Mode::ASCII:
+        if (m_start != 0) { return true; }
+        break;
+
+    case Mode::binary:
+        if (this->binHasLenSpec()) { return true; }
+        break;
+    }
+
+    return false;
 }
 
 int gateway::ProtocolConfig::m_setMode(const std::string& field)
@@ -237,8 +254,6 @@ void gateway::Client::m_task()
 
     while (!sd.sigkill())
     {
-        const time_t tNow = time(nullptr);
-
         switch (state)
         {
         case S_init:
@@ -263,6 +278,13 @@ void gateway::Client::m_task()
             }
             else
             {
+                errno = 0;
+                if (0 != m_serial.flush())
+                {
+                    if (errno) { LOG_ERR_ERRNO("failed to flush serial port", errno); }
+                    else { LOG_ERR("failed to flush serial port"); }
+                }
+
                 sd.setStatus(thread::Status::running);
                 state = S_idle;
             }
@@ -348,7 +370,26 @@ void gateway::Client::m_task()
     sd.setStatus(thread::Status::killed);
 }
 
-int gateway::Client::m_taskRx() { return 0; }
+int gateway::Client::m_taskRx()
+{
+    uint8_t buffer[256];
+
+    const ssize_t res = m_serial.read(buffer, sizeof(buffer));
+    if (res < 0)
+    {
+        LOG_ERR_ERRNO("serial read failed", errno);
+        return -(__LINE__);
+    }
+    else if (res > 0)
+    {
+        if (0 != UTIL_getTime(&m_tRxChunk)) { LOG_ERR_ERRNO("UTIL_getTime() failed", errno); }
+
+        const int err = m_handleReceivedChunk(buffer, (size_t)res);
+        if (err) { return err; }
+    }
+
+    return 0;
+}
 
 int gateway::Client::m_taskTx()
 {
@@ -375,6 +416,125 @@ int gateway::Client::m_taskTx()
     }
 
     if (!m_txCount) { m_txIdx = 0; }
+
+    return 0;
+}
+
+int gateway::Client::m_handleReceivedChunk(const uint8_t* data, size_t count)
+{
+#if 0
+    LOG_DBG_HD(data, count, "received chunk:");
+#endif
+
+    const auto& protoCfg = m_config.protoConfig();
+    const uint8_t* p = data;
+
+    while (p < (data + count))
+    {
+        if (protoCfg.hasStartCond())
+        {
+            bool startCond = false;
+
+            if (protoCfg.mode() == ProtocolConfig::Mode::ASCII) { startCond = (*p == (uint8_t)(protoCfg.asciiStart())); }
+            else if (protoCfg.mode() == ProtocolConfig::Mode::binary)
+            {
+                // startCond = ((tNow - tLastRx) >= protoCfg.binTimeout());
+                LOG_ERR("binary is not yet implemented in start condition");
+                return -(__LINE__);
+            }
+            else
+            {
+                LOG_ERR("unhandled protocol in start condition");
+                return -(__LINE__);
+            }
+
+            if (startCond)
+            {
+                if (m_rxIdx > 0) { LOG_WRN_HD(m_rxBuffer, m_rxIdx, "protocol START, discarding received data:"); }
+                m_rxStart = true;
+                m_rxIdx = 0;
+            }
+        }
+
+        if (m_rxIdx >= SIZEOF_ARRAY(m_rxBuffer))
+        {
+            LOG_ERR_HD(m_rxBuffer, sizeof(m_rxBuffer), "receive buffer overflow, discarding received data:");
+            m_rxStart = false;
+            m_rxIdx = 0;
+        }
+
+        m_rxBuffer[m_rxIdx++] = *(p++);
+
+
+
+        bool stopCond = false;
+
+        if (protoCfg.mode() == ProtocolConfig::Mode::ASCII)
+        {
+            const char* const stop = protoCfg.asciiStop();
+
+            if (!protoCfg.asciiTwoStop()) { stopCond = (m_rxBuffer[m_rxIdx - 1] == (uint8_t)(*stop)); }
+            else if (m_rxIdx >= 2)
+            {
+                stopCond = ((m_rxBuffer[m_rxIdx - 2] == (uint8_t)(*(stop + 0))) && //
+                            (m_rxBuffer[m_rxIdx - 1] == (uint8_t)(*(stop + 1))));  //
+            }
+        }
+        else if (protoCfg.mode() == ProtocolConfig::Mode::binary)
+        {
+            LOG_ERR("binary is not yet implemented in stop condition");
+            return -(__LINE__);
+        }
+        else
+        {
+            LOG_ERR("unhandled protocol in stop condition");
+            return -(__LINE__);
+        }
+
+        if (stopCond)
+        {
+            if (protoCfg.hasStartCond() && !m_rxStart) { LOG_WRN_HD(m_rxBuffer, m_rxIdx, "protocol STOP without START, discarding received data:"); }
+            else
+            {
+                m_tRxPacket = m_tRxChunk;
+
+                const int err = m_handleReceivedPacket(m_rxBuffer, m_rxIdx);
+                if (err) { return err; }
+            }
+
+            m_rxStart = false;
+            m_rxIdx = 0;
+        }
+    }
+
+    return 0;
+}
+
+int gateway::Client::m_handleReceivedPacket(const uint8_t* data, size_t count)
+{
+#if LOG_LEVEL_IS_ENABLED(LOG_LEVEL_DBG) && 0
+    LOG_INF_HD(data, count, "received packet:");
+#endif
+
+    if (count > UINT16_MAX)
+    {
+        LOG_ERR("%s can't handle %zu bytes of data", UTIL__FUNCSIG__, count);
+        return -(__LINE__);
+    }
+
+    constexpr uint8_t dataoffs = sizeof(struct phyoip_uarthdr);
+    std::vector<uint8_t> packet(dataoffs + count, 0);
+
+    struct phyoip_uarthdr* const hdr = (struct phyoip_uarthdr*)packet.data();
+    hdr->hsize = dataoffs;
+    hdr->dsize = htons((uint16_t)count);
+    hdr->timestamp = htonll((int64_t)m_tRxPacket.tv_sec);
+    hdr->nsec = htonl(m_tRxPacket.tv_nsec);
+    hdr->ingress = 1;
+
+    for (size_t i = 0; i < count; ++i) { packet[dataoffs + i] = *(data + i); }
+
+    m_srv->pushPacket(packet);
 
     return 0;
 }

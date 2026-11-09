@@ -9,6 +9,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 
 #include <cstddef>
 #include <cstdint>
+#include <ctime>
 #include <string>
 
 #include "client.h"
@@ -29,15 +30,21 @@ public:
 
 public:
     ProtocolConfig()
-        : m_mode(), m_start(0), m_stop{ 0x0A, 0 }, m_timeout(0), m_posLen(0)
+        : m_mode(), m_start(0), m_stop{ 0x0A, 0 }, m_timeout(0), m_posLen(noLen)
     {}
 
     virtual ~ProtocolConfig() {}
 
     int parse(const char* arg);
 
-    bool twoStop() const { return (m_stop[1] != 0); }
-    bool hasLengthSpecifier() const { return (m_posLen != noLen); }
+    Mode mode() const { return m_mode; }
+    bool hasStartCond() const;
+
+    char asciiStart() const { return m_start; }
+    bool asciiTwoStop() const { return (m_stop[1] != 0); }
+    const char* asciiStop() const { return m_stop; }
+
+    bool binHasLenSpec() const { return (m_posLen != noLen); }
 
 private:
     Mode m_mode;
@@ -125,12 +132,18 @@ private:
     size_t m_rxIdx = 0;
     size_t m_txCount = 0;
     size_t m_txIdx = 0;
+    bool m_rxStart = false;
+    struct timespec m_tRxChunk = {};
+    struct timespec m_tRxPacket = {};
 
     bool m_txBusy() const { return (m_txCount != 0); }
 
     void m_task();
     int m_taskRx();
     int m_taskTx();
+
+    int m_handleReceivedChunk(const uint8_t* data, size_t count);
+    int m_handleReceivedPacket(const uint8_t* data, size_t count);
 };
 
 } // namespace gateway
