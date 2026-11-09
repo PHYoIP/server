@@ -1,15 +1,17 @@
 /*
 author          Oliver Blaser
-date            06.11.2026
+date            09.11.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <string>
 
 #include "client.h"
+#include "common/serial.h"
 #include "common/string.h"
 #include "gateway.h"
 #include "server.h"
@@ -183,21 +185,25 @@ int gateway::ProtocolConfig::m_setBinParam(const std::string& field, size_t idx)
 int gateway::Config::parseConfig(const char* arg)
 {
     if (!arg) { return -(__LINE__); }
-    if (strlen(arg) != 3) { return -(__LINE__); }
+    if (strlen(arg) < 3) { return -(__LINE__); }
 
     const char data = arg[0];
-    const auto parity = comm::toUpper_ascii(std::string(1, arg[1]));
-    const char stop = arg[2];
+    const char parity = arg[1] & ~0x20;
+    const std::string stop = arg + 2;
 
     if (comm::isDigit(data)) { m_dataBits = data - 0x30; }
     else { return -(__LINE__); }
 
-    if (parity == "N") { m_parity = Parity::none; }
-    else if (parity == "E") { m_parity = Parity::even; }
-    else if (parity == "O") { m_parity = Parity::odd; }
+    if (parity == 'N') { m_parity = Parity::none; }
+    else if (parity == 'E') { m_parity = Parity::even; }
+    else if (parity == 'O') { m_parity = Parity::odd; }
+    else if (parity == 'M') { m_parity = Parity::mark; }
+    else if (parity == 'S') { m_parity = Parity::space; }
     else { return -(__LINE__); }
 
-    if (comm::isDigit(stop)) { m_stopBits = stop - 0x30; }
+    if (stop == "1") { m_stopBits = StopBits::one; }
+    else if (stop == "1.5") { m_stopBits = StopBits::onePointFive; }
+    else if (stop == "2") { m_stopBits = StopBits::two; }
     else { return -(__LINE__); }
 
     return 0;
@@ -208,6 +214,7 @@ int gateway::Config::parseConfig(const char* arg)
 void gateway::Client::m_task()
 {
     int state = S_init;
+    comm::Serial serial;
 
     sd.setStatus(thread::Status::booting);
 
@@ -224,13 +231,12 @@ void gateway::Client::m_task()
 
         case S_open:
         {
-            int err;
-
-            err = -(__LINE__); // TODO serial port open
-
+            errno = 0;
+            const int err = serial.open(m_config.port().c_str(), m_config.baud(), m_config.dataBits(), m_config.parity(), m_config.stopBits());
             if (err)
             {
-                LOG_ERR("failed to open port %s", m_config.port().c_str());
+                if (errno) { LOG_ERR_ERRNO("failed to open serial port", errno); }
+                else { LOG_ERR("failed to open serial port %s, err: %i", m_config.port().c_str(), err); }
 
                 // gateway servers that failed to open the serial port should not be running
                 m_srv->sd.terminate();
@@ -247,9 +253,23 @@ void gateway::Client::m_task()
         break;
 
         case S_terminate:
+
             LOG_DBG("terminating thread");
             sd.setStatus(thread::Status::terminating);
+
+            if (serial.isOpen())
+            {
+                errno = 0;
+                const int err = serial.close();
+                if (err)
+                {
+                    if (errno) { LOG_ERR_ERRNO("failed to close serial port", errno); }
+                    else { LOG_ERR("failed to close serial port %s, err: %i", m_config.port().c_str(), err); }
+                }
+            }
+
             state = S_kill;
+
             break;
 
         case S_kill:

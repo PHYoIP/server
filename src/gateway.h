@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            06.11.2026
+date            09.11.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -12,6 +12,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include <string>
 
 #include "client.h"
+#include "common/serial.h"
 
 
 
@@ -59,16 +60,12 @@ private:
 class Config
 {
 public:
-    enum class Parity
-    {
-        none,
-        even,
-        odd,
-    };
+    using Parity = comm::Serial::Parity;
+    using StopBits = comm::Serial::StopBits;
 
 public:
     Config()
-        : m_port(), m_baud(115200), m_dataBits(8), m_parity(Parity::none), m_stopBits(1), m_protoConfig()
+        : m_port(), m_baud(115200), m_dataBits(8), m_parity(Parity::none), m_stopBits(StopBits::one), m_protoConfig()
     {}
 
     virtual ~Config() {}
@@ -83,7 +80,7 @@ public:
     uint32_t baud() const { return m_baud; }
     uint8_t dataBits() const { return m_dataBits; }
     const Parity& parity() const { return m_parity; }
-    uint8_t stopBits() const { return m_stopBits; }
+    const StopBits& stopBits() const { return m_stopBits; }
     const ProtocolConfig& protoConfig() const { return m_protoConfig; }
 
 private:
@@ -91,7 +88,7 @@ private:
     uint32_t m_baud;
     uint8_t m_dataBits;
     Parity m_parity;
-    uint8_t m_stopBits;
+    StopBits m_stopBits;
     ProtocolConfig m_protoConfig;
 };
 

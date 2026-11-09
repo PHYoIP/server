@@ -1,7 +1,7 @@
 # PHYoIP Server
 
 > [!IMPORTANT]
-> Work in progress! "Usage:" and "Examples:" are more like a specification atm.
+> Work in progress...
 
 If a serial port is specified, the server acts as a gateway server (= server with integrated gateway client).
 

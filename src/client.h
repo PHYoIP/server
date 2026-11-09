@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            06.11.2026
+date            09.11.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -135,6 +135,8 @@ namespace client {
          * @return 0 on success
          */
         int reset(server::Server* srv, sockfd_t connfd, const std::string& addr, uint16_t port);
+
+        const std::string& idstr() const { return m_idstr; }
 
     private:
         sockfd_t m_connfd = -1;

@@ -105,9 +105,11 @@ int main(int argc, char** argv)
         //"A,LF,24",
         //"A,0103",
 
-        "COM7",
+        //"COM7",
+        "/dev/ttyUSB0",
 
-        "115200",
+        "9600",
+        //"115200",
 
         // "7E2",
 
@@ -207,7 +209,7 @@ int main(int argc, char** argv)
         {
             LOG_INF("received SIGTERM/SIGINT");
             terminateSignal = 0;
-            srv.sd.terminate();
+            srv.sd.terminate(); // the server also terminates the gateway client
         }
 
         UTIL_sleep_ms(10);

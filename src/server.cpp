@@ -1,11 +1,12 @@
 /*
 author          Oliver Blaser
-date            06.11.2026
+date            09.11.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
 #include <cstddef>
 #include <cstdint>
+#include <ctime>
 #include <mutex>
 #include <thread>
 
@@ -65,11 +66,15 @@ enum
 
 void server::Server::task(Server* srv)
 {
+    time_t tTerminate = 0;
+
     srv->sd.setStatus(thread::Status::booting);
     srv->state = S_init;
 
     while (!srv->sd.sigkill())
     {
+        const time_t tNow = time(nullptr);
+
         switch (srv->state)
         {
         case S_init:
@@ -202,23 +207,48 @@ void server::Server::task(Server* srv)
         {
             srv->sd.setStatus(thread::Status::terminating);
 
+            constexpr time_t termTimeout = 10;
+            if (tTerminate == 0) { tTerminate = tNow; }
+
             bool allClientsClosed = true;
 
             // clean up connections
             for (size_t i = 0; i < srv->clients.size(); ++i)
             {
-                srv->clients[i].sd.terminate();
+                auto& c = srv->clients[i];
 
-                const auto status = srv->clients[i].sd.status();
-                if ((status != thread::Status::null) && (status != thread::Status::killed)) { allClientsClosed = false; }
+                c.sd.terminate();
+
+                const auto status = c.sd.status();
+                if ((status != thread::Status::null) && (status != thread::Status::killed))
+                {
+                    allClientsClosed = false;
+
+                    if ((tNow - tTerminate) >= termTimeout)
+                    {
+                        LOG_WRN("killing client #%zu %s", i, c.idstr().c_str());
+                        c.sd.kill();
+                    }
+                }
             }
 
             if (srv->m_gwc)
             {
-                srv->m_gwc->sd.terminate();
+                auto& c = srv->m_gwc;
 
-                const auto status = srv->m_gwc->sd.status();
-                if ((status != thread::Status::null) && (status != thread::Status::killed)) { allClientsClosed = false; }
+                c->sd.terminate();
+
+                const auto status = c->sd.status();
+                if ((status != thread::Status::null) && (status != thread::Status::killed))
+                {
+                    allClientsClosed = false;
+
+                    if ((tNow - tTerminate) >= termTimeout)
+                    {
+                        LOG_WRN("killing gateway client");
+                        c->sd.kill();
+                    }
+                }
             }
 
             if (allClientsClosed)
@@ -247,6 +277,12 @@ void server::Server::task(Server* srv)
         }
 
         UTIL_sleep_ms(5);
+
+        if (srv->state == S_terminate)
+        {
+            UTIL_sleep_ms(5);
+            if (tTerminate < tNow) { UTIL_sleep_ms(90); }
+        }
     }
 
     srv->sd.setStatus(thread::Status::killed);

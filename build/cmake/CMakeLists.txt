@@ -31,6 +31,7 @@ set(SOURCES
     ../../src/main.cpp
     ../../common/src/ansi-esc.cpp
     ../../common/src/packet.cpp
+    ../../common/src/serial.cpp
     ../../common/src/socket.cpp
     ../../common/src/string.cpp
     ../../common/util/util/time.c
