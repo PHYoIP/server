@@ -191,7 +191,7 @@ int main(int argc, char** argv)
     }
 #endif
 
-    server::Server srv((uint16_t)port);
+    server::Server srv((uint16_t)port, argc, argv);
 
     gateway::Client gwc(&srv, gwConfig);
     if (gwEnabled)

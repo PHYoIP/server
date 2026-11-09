@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            06.11.2026
+date            09.11.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -11,6 +11,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include "client.h"
@@ -58,7 +59,7 @@ public:
 
 public:
     Server();
-    Server(uint16_t port);
+    Server(uint16_t port, int argc = 0, char** argv = nullptr);
     virtual ~Server() {}
 
     uint16_t port() const { return m_port; }
@@ -67,6 +68,7 @@ public:
     int registerClient(gateway::Client* client);
     void delistClient(client::Client* client);
     void pushPacket(const std::vector<uint8_t>& packet);
+    const char* peerInfoDescr() const { return m_peerInfoDescr.c_str(); }
 
 public:
     SharedData sd;
@@ -74,6 +76,7 @@ public:
 private:
     std::mutex m_mtxClient;
     const uint16_t m_port;
+    std::string m_peerInfoDescr;
     gateway::Client* m_gwc;
 
 private:

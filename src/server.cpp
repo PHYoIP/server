@@ -8,6 +8,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include <cstdint>
 #include <ctime>
 #include <mutex>
+#include <string>
 #include <thread>
 
 #include "client.h"
@@ -15,6 +16,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include "common/socket.h"
 #include "common/thread.h"
 #include "server.h"
+#include "util/macros.h"
 #include "util/time.h"
 
 #include <phyoip/protocol/cmp.h>
@@ -61,6 +63,10 @@ enum
     S_terminate,
     S_kill,
 };
+
+
+
+static std::string getPeerInfoDescr(int argc = 0, char** argv = nullptr);
 
 
 
@@ -289,11 +295,11 @@ void server::Server::task(Server* srv)
 }
 
 server::Server::Server()
-    : sd(), m_port(PHYOIP_DEFAULT_PORT), m_gwc(nullptr)
+    : sd(), m_port(PHYOIP_DEFAULT_PORT), m_peerInfoDescr(getPeerInfoDescr()), m_gwc(nullptr)
 {}
 
-server::Server::Server(uint16_t port)
-    : sd(), m_port(port ? port : PHYOIP_DEFAULT_PORT), m_gwc(nullptr)
+server::Server::Server(uint16_t port, int argc, char** argv)
+    : sd(), m_port(port ? port : PHYOIP_DEFAULT_PORT), m_peerInfoDescr(getPeerInfoDescr(argc, argv)), m_gwc(nullptr)
 {}
 
 int server::Server::registerClient(client::Client* client, uint16_t type)
@@ -428,4 +434,25 @@ void server::Server::spawnClient(sockfd_t connfd, const void* sockaddr_in)
         err = sockclose(connfd);
         if (err) { LOG_ERR_SOCKET("close(connfd) failed"); }
     }
+}
+
+
+
+std::string getPeerInfoDescr(int argc, char** argv)
+{
+    std::string str = "PHYoIP server sample implementation";
+
+    if (argc && argv)
+    {
+        str += "\nargs:";
+
+        for (int i = 0; i < argc; ++i)
+        {
+            str += (char)0x20;
+            str += *(argv + i);
+        }
+    }
+    else if (argc || argv) { LOG_ERR("%s(%i, %p)", UTIL__FUNCNAME__, argc, argv); }
+
+    return str;
 }

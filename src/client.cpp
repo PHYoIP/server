@@ -182,8 +182,8 @@ void server::client::Client::m_task()
 
             if ((m_triggerFlags & TRIGF_SEND_PEER_INFO) && !m_txBusy())
             {
-                const ssize_t res = packet::serialise::cmpPeerInfo(m_txBuffer, sizeof(m_txBuffer), prj::appName, "PHYoIP server sample implementation",
-                                                                   PRJ_VERSION_MAJ, PRJ_VERSION_MIN, PRJ_VERSION_STR);
+                const ssize_t res = packet::serialise::cmpPeerInfo(m_txBuffer, sizeof(m_txBuffer), prj::appName, m_srv->peerInfoDescr(), PRJ_VERSION_MAJ,
+                                                                   PRJ_VERSION_MIN, PRJ_VERSION_STR);
                 static_assert((PRJ_VERSION_MAJ <= UINT8_MAX) && (PRJ_VERSION_MIN <= UINT8_MAX));
 
                 if (res > 0) { m_txCount = (size_t)res; }
@@ -355,7 +355,7 @@ int server::client::Client::m_taskRecv()
             return -(__LINE__);
         }
 
-        return 1; // this return code needs to be checked at `m_handleReceivedChunk()`
+        return 1; // this return code needs to be checked when calling `m_handleReceivedChunk()` so that this only returned here
     }
     else if (res < 0)
     {
