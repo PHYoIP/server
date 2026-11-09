@@ -5,6 +5,7 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
 #include <cerrno>
+#include <cinttypes>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -17,6 +18,19 @@ copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 #include "server.h"
 #include "util/macros.h"
 #include "util/time.h"
+
+#include <phyoip/protocol/uart.h>
+
+#ifdef _WIN32
+
+#include <WS2tcpip.h>
+
+#else // *nix
+
+#include <arpa/inet.h>
+#include <limits.h>
+
+#endif // Windows / *nix
 
 
 #define LOG_MODULE_LEVEL LOG_LEVEL_DBG
@@ -33,6 +47,10 @@ enum
     S_terminate,
     S_kill,
 };
+
+
+
+static inline ssize_t parseUartPacket(uint8_t* buffer, size_t size, const uint8_t* packet);
 
 
 
@@ -214,7 +232,6 @@ int gateway::Config::parseConfig(const char* arg)
 void gateway::Client::m_task()
 {
     int state = S_init;
-    comm::Serial serial;
 
     sd.setStatus(thread::Status::booting);
 
@@ -232,7 +249,7 @@ void gateway::Client::m_task()
         case S_open:
         {
             errno = 0;
-            const int err = serial.open(m_config.port().c_str(), m_config.baud(), m_config.dataBits(), m_config.parity(), m_config.stopBits());
+            const int err = m_serial.open(m_config.port().c_str(), m_config.baud(), m_config.dataBits(), m_config.parity(), m_config.stopBits());
             if (err)
             {
                 if (errno) { LOG_ERR_ERRNO("failed to open serial port", errno); }
@@ -252,15 +269,57 @@ void gateway::Client::m_task()
         }
         break;
 
+        case S_idle:
+        {
+            int err;
+
+            err = m_taskRx();
+            if (err)
+            {
+                sd.setError(err);
+                state = S_terminate;
+            }
+
+            err = m_taskTx();
+            if (err)
+            {
+                sd.setError(err);
+                state = S_terminate;
+            }
+
+            if (sd.packetQueued() && !m_txBusy())
+            {
+                const auto packet = sd.pop();
+                const ssize_t res = parseUartPacket(m_txBuffer, sizeof(m_txBuffer), packet.data());
+                if (res > 0)
+                {
+                    m_txCount = (size_t)res;
+                    // LOG_DBG_HD(m_txBuffer, m_txCount, "send packet:");
+                }
+                else
+                {
+                    sd.setError(res);
+                    state = S_terminate;
+                }
+            }
+
+            if (sd.sigterm())
+            {
+                LOG_INF("terminating");
+                state = S_terminate;
+            }
+        }
+        break;
+
         case S_terminate:
 
             LOG_DBG("terminating thread");
             sd.setStatus(thread::Status::terminating);
 
-            if (serial.isOpen())
+            if (m_serial.isOpen())
             {
                 errno = 0;
-                const int err = serial.close();
+                const int err = m_serial.close();
                 if (err)
                 {
                     if (errno) { LOG_ERR_ERRNO("failed to close serial port", errno); }
@@ -287,4 +346,64 @@ void gateway::Client::m_task()
 
     LOG_DBG("exited thread (err: %i)", sd.error());
     sd.setStatus(thread::Status::killed);
+}
+
+int gateway::Client::m_taskRx() { return 0; }
+
+int gateway::Client::m_taskTx()
+{
+    if (m_txCount)
+    {
+        const ssize_t res = m_serial.write(m_txBuffer + m_txIdx, m_txCount);
+        if (res < 0)
+        {
+            LOG_ERR_ERRNO("serial write failed", errno);
+            return -(__LINE__);
+        }
+        else
+        {
+            size_t n = (size_t)res;
+            if (n > m_txCount)
+            {
+                LOG_ERR("written %zu of %zu bytes", n, m_txCount);
+                n = m_txCount; // clamp for correct math below
+            }
+
+            m_txIdx += n;
+            m_txCount -= n;
+        }
+    }
+
+    if (!m_txCount) { m_txIdx = 0; }
+
+    return 0;
+}
+
+
+
+// TODO move to packet::parse::uart() or packet::parse::uartData()
+inline ssize_t parseUartPacket(uint8_t* buffer, size_t size, const uint8_t* packet)
+{
+    const struct phyoip_uarthdr* const hdr = (const struct phyoip_uarthdr*)(packet);
+    const size_t hsize = hdr->hsize;
+    const size_t dsize = ntohs(hdr->dsize);
+
+    const uint8_t* data = packet + hsize;
+    const size_t count = dsize;
+
+    if (count > size)
+    {
+        LOG_ERR("insufficient buffer, size: %zu, hsize: %zu, dsize: %zu", size, hsize, dsize);
+        return -(__LINE__);
+    }
+
+    if (count > SSIZE_MAX)
+    {
+        LOG_ERR("can't copy UART data, count: %zu, SSIZE_MAX: %" PRIi64, count, (int64_t)SSIZE_MAX);
+        return -(__LINE__);
+    }
+
+    for (size_t i = 0; i < count; ++i) { *(buffer + i) = *(data + i); }
+
+    return (ssize_t)count;
 }

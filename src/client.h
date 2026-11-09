@@ -75,6 +75,9 @@ namespace client {
     class Common
     {
     public:
+        static constexpr size_t bufferSize = 1024;
+
+    public:
         Common() = delete;
 
         explicit Common(server::Server* srv)
@@ -98,7 +101,6 @@ namespace client {
     class Client : public Common
     {
     public:
-        static constexpr size_t bufferSize = 1024;
         static constexpr uint32_t registerTimeout = 30; // [s]
 
         /**
@@ -145,8 +147,8 @@ namespace client {
         bool m_registered = false;
         uint32_t m_triggerFlags = 0;
 
-        uint8_t m_rxBuffer[Client::bufferSize];
-        uint8_t m_txBuffer[Client::bufferSize];
+        uint8_t m_rxBuffer[bufferSize];
+        uint8_t m_txBuffer[bufferSize];
         size_t m_rxIdx = 0;
         size_t m_txCount = 0;
         size_t m_txIdx = 0;

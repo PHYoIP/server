@@ -108,7 +108,7 @@ public:
 // #pragma warning(suppress :26495)
 #endif
     Client()
-        : server::client::Common(nullptr), m_config()
+        : server::client::Common(nullptr), m_config(), m_serial()
     {}
 
     Client(server::Server* srv, const Config& config)
@@ -119,8 +119,18 @@ public:
 
 private:
     const gateway::Config m_config;
+    comm::Serial m_serial;
+    uint8_t m_rxBuffer[bufferSize];
+    uint8_t m_txBuffer[bufferSize];
+    size_t m_rxIdx = 0;
+    size_t m_txCount = 0;
+    size_t m_txIdx = 0;
+
+    bool m_txBusy() const { return (m_txCount != 0); }
 
     void m_task();
+    int m_taskRx();
+    int m_taskTx();
 };
 
 } // namespace gateway

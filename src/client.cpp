@@ -1,6 +1,6 @@
 /*
 author          Oliver Blaser
-date            06.11.2026
+date            09.11.2026
 copyright       GPL-3.0 - Copyright (c) 2026 Oliver Blaser
 */
 
@@ -534,14 +534,34 @@ int server::client::Client::m_handleCmpRegister(const uint8_t* data, size_t coun
     const bool positiveFeedbackLoop = (((clitype & PHYOIP_CTPERM_RE) && (clitype & PHYOIP_CTPERM_WE)) || //
                                        ((clitype & PHYOIP_CTPERM_RI) && (clitype & PHYOIP_CTPERM_WI)));  //
 
-    if (proto != PHYOIP_PROTO_UART) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PROTO); }
-    else if (positiveFeedbackLoop) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_ERROR); }
-    else if ((clitype & PHYOIP_CTPERM_MASK) == PHYOIP_CTPERM_NONE) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_ERROR); }
+    if (proto != PHYOIP_PROTO_UART)
+    {
+        LOG_WRN("denied client %s, protocol: 0x%02x", m_idstr.c_str(), (int)proto);
+        m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PROTO);
+    }
+    else if (positiveFeedbackLoop)
+    {
+        LOG_WRN("denied client %s, type: 0x%04x", m_idstr.c_str(), (int)clitype);
+        m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_ERROR);
+    }
+    else if ((clitype & PHYOIP_CTPERM_MASK) == PHYOIP_CTPERM_NONE)
+    {
+        LOG_INF("denied client %s, type: 0x%04x", m_idstr.c_str(), (int)clitype);
+        m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_ERROR);
+    }
     else
     {
         const int err = m_srv->registerClient(this, clitype);
-        if (err) { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PERM); }
-        else { m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_OK); }
+        if (err)
+        {
+            LOG_INF("denied client %s, type: 0x%04x", m_idstr.c_str(), (int)clitype);
+            m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_PERM);
+        }
+        else
+        {
+            LOG_DBG("accepted client %s, type: 0x%04x", m_idstr.c_str(), (int)clitype);
+            m_triggerFlags |= (TRIGF_SEND_ACK | PHYOIP_ACK_OK);
+        }
     }
 
     return 0;
